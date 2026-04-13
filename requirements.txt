@@ -1,0 +1,29 @@
+# Data collection
+yfinance>=0.2.36
+fredapi>=0.5.1
+praw>=7.7.1
+gdeltdoc>=1.4.0
+requests>=2.31.0
+
+# Data processing
+pandas>=2.1.0
+numpy>=1.26.0
+
+# Sentiment / NLP
+transformers>=4.40.0
+torch>=2.2.0
+
+# Econometrics
+statsmodels>=0.14.0
+midaspy                # MIDAS regression (install via: pip install git+https://github.com/mikeCenters/midaspy.git)
+
+# ML / Deep learning
+scikit-learn>=1.4.0
+
+# Visualisation
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.20.0
+
+# Notebooks
+jupyter>=1.0.0
