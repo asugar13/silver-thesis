@@ -16,6 +16,9 @@ import os
 import pandas as pd
 import yfinance as yf
 from fredapi import Fred
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 

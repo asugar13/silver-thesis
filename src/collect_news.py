@@ -16,6 +16,9 @@ import os
 import time
 import requests
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 RAW_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
 
@@ -40,12 +43,19 @@ def fetch_gdelt_headlines(keywords: list, start: str, end: str) -> pd.DataFrame:
         start_date = start,
         end_date   = end,
     )
-    try:
-        articles = gd.article_search(f)
-        return articles
-    except Exception as e:
-        print(f"  GDELT error: {e}")
-        return pd.DataFrame()
+    max_retries = 4
+    for attempt in range(max_retries):
+        try:
+            articles = gd.article_search(f)
+            if articles is not None and len(articles) == 250:
+                print(f"  WARNING: hit 250-article cap — some articles may be missing for this window")
+            return articles if articles is not None else pd.DataFrame()
+        except Exception as e:
+            wait = 10 * (attempt + 1)  # 10s, 20s, 30s, 40s
+            print(f"  GDELT error (attempt {attempt+1}/{max_retries}): {type(e).__name__} — waiting {wait}s")
+            time.sleep(wait)
+    print(f"  GDELT: all retries failed — skipping window")
+    return pd.DataFrame()
 
 
 def fetch_gdelt_full(keywords: list, start: str, end: str) -> pd.DataFrame:
@@ -65,7 +75,7 @@ def fetch_gdelt_full(keywords: list, start: str, end: str) -> pd.DataFrame:
         if not df.empty:
             frames.append(df)
         current = next_dt
-        time.sleep(0.5)
+        time.sleep(6)  # GDELT allows roughly 1 req per 5-6s before rate limiting
 
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
@@ -144,8 +154,9 @@ def fetch_av_news(tickers: str = "SILVER", limit: int = 200) -> pd.DataFrame:
 
 
 # ── 4. MAIN ───────────────────────────────────────────────────────────────────
-SILVER_KEYWORDS = ["silver", "silver price", "XAG", "silver squeeze",
-                   "silver futures", "COMEX silver"]
+# GDELT rejects long OR queries — a single broad keyword works better
+# "silver" catches all relevant articles; irrelevant ones get filtered at the FinBERT stage
+SILVER_KEYWORDS = ["silver"]
 
 def main():
     os.makedirs(RAW_DIR, exist_ok=True)
@@ -158,22 +169,22 @@ def main():
         gdelt_df.to_csv(out, index=False)
         print(f"  Saved {gdelt_df.shape} -> {out}\n")
 
-    # Alpha Vantage — comes with pre-computed sentiment (saves FinBERT time on news)
-    print("Fetching Alpha Vantage news sentiment...")
-    av_df = fetch_av_news(tickers="SLV,PSLV")
-    if not av_df.empty:
-        out = f"{RAW_DIR}/news_alphavantage.csv"
-        av_df.to_csv(out, index=False)
-        print(f"  Saved {av_df.shape} -> {out}\n")
+    # # Alpha Vantage — comes with pre-computed sentiment (saves FinBERT time on news)
+    # print("Fetching Alpha Vantage news sentiment...")
+    # av_df = fetch_av_news(tickers="SLV,PSLV")
+    # if not av_df.empty:
+    #     out = f"{RAW_DIR}/news_alphavantage.csv"
+    #     av_df.to_csv(out, index=False)
+    #     print(f"  Saved {av_df.shape} -> {out}\n")
 
-    # NewsAPI — recent headlines
-    print("Fetching NewsAPI headlines...")
-    news_df = fetch_newsapi("silver price OR silver squeeze OR XAG",
-                            from_date="2024-01-01", to_date="2024-12-31")
-    if not news_df.empty:
-        out = f"{RAW_DIR}/news_newsapi.csv"
-        news_df.to_csv(out, index=False)
-        print(f"  Saved {news_df.shape} -> {out}")
+    # # NewsAPI — recent headlines
+    # print("Fetching NewsAPI headlines...")
+    # news_df = fetch_newsapi("silver price OR silver squeeze OR XAG",
+    #                         from_date="2024-01-01", to_date="2024-12-31")
+    # if not news_df.empty:
+    #     out = f"{RAW_DIR}/news_newsapi.csv"
+    #     news_df.to_csv(out, index=False)
+    #     print(f"  Saved {news_df.shape} -> {out}")
 
 
 if __name__ == "__main__":
