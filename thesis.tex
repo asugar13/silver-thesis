@@ -1,0 +1,652 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Encoding & fonts ──────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+
+% ── Page layout ───────────────────────────────────────────────────────────────
+\usepackage[
+    top=2.5cm, bottom=2.5cm,
+    left=3cm,  right=2.5cm
+]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Maths ─────────────────────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ── Figures & tables ──────────────────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{multirow}
+
+% ── Hyperlinks & cross-references ─────────────────────────────────────────────
+\usepackage[
+    colorlinks = true,
+    linkcolor  = black,
+    citecolor  = black,
+    urlcolor   = blue
+]{hyperref}
+
+% ── References ────────────────────────────────────────────────────────────────
+\usepackage[
+    backend  = biber,
+    style    = apa,
+    sorting  = nyt
+]{biblatex}
+\addbibresource{references.bib}
+
+% ── Misc ──────────────────────────────────────────────────────────────────────
+\usepackage{microtype}
+\usepackage{parskip}
+
+% ─────────────────────────────────────────────────────────────────────────────
+%  Title page
+% ─────────────────────────────────────────────────────────────────────────────
+\title{
+    \vspace{2cm}
+    {\Large Master's Thesis} \\[0.5cm]
+    {\LARGE\bfseries Forecasting Silver Prices with Mixed-Frequency Models,
+    LSTMs, and Sentiment Analysis: \\[0.3cm]
+    Testing a Retail-Driven Price Hypothesis} \\[1.5cm]
+    {\large IE University} \\[0.3cm]
+    {\large Master in Business Analytics \& Big Data}
+}
+\author{
+    Asier Ugartechea Perez \\[0.3cm]
+    \small Supervisor: Prof.\ Dae-Jin Lee
+}
+\date{Academic Year 2025/2026}
+
+
+\begin{document}
+
+% ── Title page ────────────────────────────────────────────────────────────────
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% ── Abstract ──────────────────────────────────────────────────────────────────
+\begin{abstract}
+\noindent
+Silver occupies a unique position among commodities: it functions simultaneously as an
+industrial input---used in photovoltaics, electronics, and medical devices---and as a
+retail-investment asset whose price is susceptible to social-media-driven momentum.
+This thesis tests the hypothesis that short-term silver price fluctuations are
+disproportionately influenced by retail trader sentiment, and that incorporating sentiment
+signals into forecasting models can materially improve predictive accuracy.
+
+Using daily silver spot prices and a set of related financial and macroeconomic covariates
+spanning January 2015 to December 2024, we estimate and compare four model families:
+ARIMA, ARIMAX, Mixed Data Sampling (MIDAS) regression, and a Long Short-Term Memory
+(LSTM) neural network. Sentiment is constructed daily from two sources---Reddit posts
+from r/Silverbugs and r/WallStreetSilver scored with Twitter-RoBERTa, and financial news
+headlines from the GDELT Project scored with FinBERT---and enters the models as an
+additional high-frequency covariate.
+
+Our results show that pure ARIMA has essentially no directional skill (directional accuracy
+$\approx 0.47$), consistent with silver returns behaving as a near-random walk when
+conditioned only on their own history. Adding related market variables as exogenous inputs
+(ARIMAX) raises directional accuracy to $0.748$ and weighted directional accuracy to
+$0.889$, demonstrating that silver is strongly co-driven by gold, the US dollar, copper,
+and equities. The contribution of retail sentiment as an incremental predictor is assessed
+through an ablation study and the Diebold--Mariano test of equal predictive accuracy.
+The January 2021 silver squeeze episode serves as a natural experiment for the retail
+hypothesis.
+\end{abstract}
+\newpage
+
+% ── Table of contents ─────────────────────────────────────────────────────────
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Silver is unusual among commodity markets. On the supply side, approximately half of
+annual production comes as a by-product of mining other metals, making it relatively
+price-inelastic. On the demand side, silver serves two structurally distinct constituencies:
+industrial users---who need it for solar panels, semiconductors, and medical devices---and
+retail investors, who treat it as a store of value, an inflation hedge, and, increasingly, a
+vehicle for speculative momentum trades. This dual nature makes silver a particularly
+interesting laboratory for studying how retail sentiment interacts with macroeconomic
+fundamentals in driving short-term price dynamics.
+
+The January 2021 ``silver squeeze'' crystallised this tension. Inspired by the GameStop
+short-squeeze coordinated on Reddit's r/WallStreetBets, a new community---r/WallStreetSilver,
+founded on 28 January 2021---called for a coordinated retail push into silver. Over the following
+days, silver spot prices rose from approximately \$25/oz to a peak near \$30/oz, before
+retreating as the coordinated buying failed to sustain momentum against institutional selling.
+Whether this episode represents genuine retail price discovery or a temporary dislocation is
+an open empirical question, and it motivates the central hypothesis of this thesis.
+
+\textbf{Research Question.} Can retail trader sentiment, extracted from Reddit and financial
+news, improve the out-of-sample forecasting accuracy of silver daily log-returns beyond
+what is achievable with market-based and macroeconomic covariates alone?
+
+\textbf{Hypothesis.} If retail activity is a meaningful price driver, then sentiment-augmented
+models should outperform their sentiment-free counterparts, particularly during episodes of
+coordinated retail activity such as the 2021 silver squeeze.
+
+To answer this question, the thesis makes three contributions. First, it constructs a
+daily sentiment index for silver from 17,000 Reddit posts and a large corpus of news
+headlines, using domain-appropriate transformer models---Twitter-RoBERTa for social media
+and FinBERT for financial news. Second, it estimates a battery of forecasting models
+ranging from classical time-series (ARIMA, ARIMAX, MIDAS) to deep learning (LSTM),
+providing a clean comparison of model families under a unified evaluation protocol.
+Third, it uses the Diebold--Mariano test to assess whether observed performance
+differences are statistically significant, and examines model behaviour during the 2021
+squeeze episode specifically.
+
+The remainder of this thesis is structured as follows. Section~\ref{sec:lit} reviews the
+relevant literature on commodity price forecasting, mixed-frequency models, and financial
+sentiment analysis. Section~\ref{sec:data} describes the data sources and construction
+of the feature matrix. Section~\ref{sec:method} presents the forecasting models and
+evaluation framework. Section~\ref{sec:results} reports the out-of-sample results.
+Section~\ref{sec:conclusion} concludes and discusses limitations and directions for
+future research.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Literature Review}
+\label{sec:lit}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Commodity Price Forecasting}
+
+Forecasting commodity prices has a long history in applied econometrics. Early work
+established that commodity spot prices are difficult to forecast out-of-sample beyond a
+random-walk benchmark \parencite{deaton1992}, a finding that has proved robust across
+metals, energy, and agricultural commodities. For precious metals specifically,
+\textcite{zhang2010} show that gold prices exhibit near unit-root behaviour in levels,
+while log-returns are stationary---motivating the use of returns rather than levels as
+the forecasting target.
+
+The ARIMA family remains a standard baseline. Its appeal lies in theoretical
+grounding---the Box--Jenkins methodology provides a principled procedure for order
+selection via autocorrelation structure---and its interpretability. Extensions to ARIMAX
+allow exogenous covariates, which is natural for silver given its empirically documented
+co-movement with gold, the US dollar, and equity markets \parencite{batten2010}.
+
+Machine learning approaches have gained traction in recent years, with LSTMs in
+particular attracting attention for financial time series due to their ability to capture
+long-range dependencies without manual lag specification \parencite{hochreiter1997}.
+However, the empirical evidence on whether LSTMs outperform classical models for
+commodity forecasting is mixed, and depends heavily on the feature set, training
+horizon, and evaluation scheme \parencite{sezer2020}.
+
+\subsection{Mixed Data Sampling (MIDAS)}
+
+A persistent challenge in macroeconomic forecasting is that the variables of interest---GDP
+growth, inflation, industrial production---are observed at lower frequencies than financial
+market data. The standard approach of temporal aggregation or forward-filling discards
+information and imposes arbitrary assumptions about within-period dynamics.
+
+\textcite{ghysels2004} introduced the Mixed Data Sampling (MIDAS) regression framework
+as a principled alternative. The MIDAS model allows a high-frequency dependent variable
+$y_t$ to be regressed directly on a low-frequency predictor $x_{\lfloor t/m \rfloor}$
+via a polynomial weighting function that assigns different weights to each lagged
+observation of the low-frequency variable:
+
+\begin{equation}
+    y_t = \alpha + \beta \sum_{k=0}^{K} w(k;\theta)\, x_{\lfloor t/m \rfloor - k} + \varepsilon_t
+    \label{eq:midas}
+\end{equation}
+
+\noindent where $m$ is the frequency ratio (approximately 22 trading days per calendar
+month in our setting), $K$ is the number of low-frequency lags included, and
+$w(k; \theta)$ is a weighting function parameterised by $\theta$. Common choices
+include the Beta polynomial and the normalised Almon (exponential Almon) polynomial.
+The Beta weighting function is:
+
+\begin{equation}
+    w(k; \theta_1, \theta_2) = \frac{(k/K)^{\theta_1 - 1}(1 - k/K)^{\theta_2 - 1}}{B(\theta_1, \theta_2)}
+    \label{eq:beta}
+\end{equation}
+
+\noindent The two parameters $(\theta_1, \theta_2)$ control the shape of the lag
+distribution, allowing it to be monotonically declining, hump-shaped, or U-shaped.
+This parsimony---two parameters instead of $K$ free coefficients---reduces overfitting
+relative to the Unrestricted MIDAS (U-MIDAS) variant, which uses OLS with $K$ separate
+lag regressors.
+
+\textcite{ghysels2007} extended the framework to multiple low-frequency predictors and
+demonstrated forecasting gains over simple temporal aggregation for US GDP growth.
+For commodity markets, \textcite{andreou2013} apply MIDAS to oil price forecasting
+using high-frequency financial data, finding improvements over monthly-frequency
+benchmarks.
+
+\subsection{Sentiment Analysis in Financial Markets}
+
+The use of text-derived sentiment as a financial signal has a substantial literature.
+Early approaches used dictionary methods (e.g., the Loughran--McDonald financial wordlist)
+to score documents, but these struggle with negation, sarcasm, and domain-specific language.
+
+The development of large pre-trained language models has substantially improved sentiment
+classification. \textcite{araci2019} fine-tuned BERT \parencite{devlin2019} on a corpus
+of financial news sentences from Reuters and Bloomberg to produce FinBERT, a
+classification model with three output classes: positive, negative, neutral. FinBERT
+achieves state-of-the-art performance on the Financial PhraseBank benchmark and is
+particularly well-calibrated for formal financial language.
+
+Social media text presents different challenges. The informal register of Reddit and
+Twitter---including slang, capitalisation for emphasis, emoji, and meme references---is
+poorly handled by models trained on financial news. \textcite{loureiro2022} released a
+family of RoBERTa \parencite{liu2019} models continuously updated on Twitter data,
+including \texttt{twitter-roberta-base-sentiment-latest}, which is trained on a large
+corpus of tweets with human sentiment labels. This model is better suited to social media
+text than FinBERT, motivating the dual-model approach adopted in this thesis.
+
+\subsection{Retail Investor Behaviour and Silver}
+
+The role of retail investors in commodity markets has received growing attention
+following the 2021 meme-stock episode. \textcite{anand2021} document the retail
+trading surge in GameStop and its spillovers into related assets. The silver squeeze
+of late January 2021 was a direct extension of this dynamic: posts on r/WallStreetBets
+and the newly created r/WallStreetSilver argued that silver was heavily shorted by
+large banks and could be squeezed in the same way as GameStop.
+
+The academic evidence on whether retail sentiment predicts commodity returns is limited.
+\textcite{smales2021} find that news sentiment Granger-causes gold returns but the
+effect is short-lived (one to two days). For silver specifically, the evidence is thinner,
+in part because it historically attracted less retail attention than gold. The 2021 episode
+provides a particularly clean test: r/WallStreetSilver was created on 28 January 2021
+and grew from zero to hundreds of thousands of subscribers within days, providing an
+exogenous shock to retail attention.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Data}
+\label{sec:data}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Price Data}
+
+Daily price data are collected for silver spot (XAG/USD), gold spot (XAU/USD), copper
+futures (HG=F), the S\&P 500 index ({\^{}}GSPC), the US Dollar Index (DX-Y.NYB), and
+the iShares TIPS Bond ETF (TIP) as a proxy for inflation expectations. All series are
+sourced from Yahoo Finance via the \texttt{yfinance} Python library and span
+2 January 2015 to 30 December 2024, yielding 2,517 daily observations.
+
+All prices are transformed to log-returns before modelling:
+
+\begin{equation}
+    r_t = \log(P_t) - \log(P_{t-1})
+\end{equation}
+
+\noindent Log-returns are preferred over simple returns because they are additive over
+time, bounded below by $-\infty$ (ruling out arbitrage), and more closely approximate
+a normal distribution---reducing the leverage effect of extreme observations on
+parameter estimates. The target variable throughout is the daily silver log-return
+$r_t^{\text{silver}}$.
+
+Table~\ref{tab:price_stats} reports summary statistics for the raw price series.
+
+\begin{table}[H]
+    \centering
+    \caption{Descriptive statistics for daily price series (2015--2024)}
+    \label{tab:price_stats}
+    \begin{tabular}{lrrrrr}
+        \toprule
+        Series & Mean & Std & Min & Median & Max \\
+        \midrule
+        Silver (USD/oz)    & 20.09 & 4.77  & 11.74 & 18.04 & 34.83 \\
+        Gold (USD/oz)      & 1603.02 & 392.63 & 1050.80 & 1526.55 & 2788.50 \\
+        Copper (USD/lb)    & 3.23  & 0.78  & 1.94  & 3.02  & 5.12  \\
+        S\&P 500 (index)   & 3355  & 1083  & 1829  & 3005  & 6090  \\
+        USD Index          & 98.07 & 4.90  & 88.59 & 97.25 & 114.11 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\noindent Silver log-returns over the training period (2015--2021) have mean $0.000282$,
+standard deviation $0.01767$, minimum $-0.1239$, and maximum $0.0888$, consistent
+with a near-symmetric, leptokurtic distribution.
+
+\subsection{Macroeconomic Data}
+
+Monthly macroeconomic indicators are sourced from the Federal Reserve Economic Data
+(FRED) API. Six series are collected: the Consumer Price Index (CPI, seasonally
+adjusted, series CPIAUCSL), the Federal Funds Effective Rate (FEDFUNDS), the Federal
+Reserve Index of Industrial Production (INDPRO), M2 money supply (M2SL), the US
+Dollar Index (DTWEXBGS), and the 10-year real interest rate derived from TIPS yields.
+The sample covers January 2015 to December 2024, yielding 120 monthly observations.
+
+Monthly data are aligned to the daily price index using forward-filling: a reading
+published in month $t$ is assumed to be the relevant value for all trading days in
+month $t$ until the next monthly release. This is the information-theoretically correct
+approach---using a CPI reading from month $t$ for forecasting on day $t+k$ within
+the same month does not constitute look-ahead bias, as the reading is publicly
+available. Both the level and the month-over-month percentage change are included as
+features, the latter to ensure stationarity.
+
+\subsection{Reddit Sentiment}
+
+Reddit posts are collected from two subreddits: r/Silverbugs, a community of long-term
+silver stackers and precious metals collectors active since approximately 2012, and
+r/WallStreetSilver (WSS), created on 28 January 2021 during the retail squeeze episode.
+Full post history is collected via the Arctic Shift public API (a mirror of the Pushshift
+Reddit archive), covering January 2015 to December 2024. A total of 17,000 posts are
+retained after deduplication, comprising 12,200 from r/Silverbugs and 4,800 from
+r/WallStreetSilver.
+
+The input text for each post is the concatenation of the post title and the first 100
+characters of the body text. Posts are scored with the
+\texttt{cardiffnlp/twitter-roberta-base-sentiment-latest} model (Twitter-RoBERTa),
+which is better suited to Reddit's informal register than FinBERT---the latter fails to
+recognise bullish retail slang such as ``to the moon'' and ``diamond hands'' as positive
+sentiment. A daily weighted sentiment index is constructed by computing the
+upvote-weighted average of post sentiment scores:
+
+\begin{equation}
+    S_t^{\text{reddit}} = \frac{\sum_{i \in \mathcal{D}_t} w_i \cdot s_i}{\sum_{i \in \mathcal{D}_t} w_i}
+    \label{eq:reddit_sent}
+\end{equation}
+
+\noindent where $\mathcal{D}_t$ is the set of posts published on day $t$, $s_i \in [-1, 1]$
+is the sentiment score (positive probability minus negative probability) for post $i$,
+and $w_i = \max(\text{score}_i, 1)$ is the Reddit upvote count floored at one. This
+weighting gives greater influence to posts that achieved community engagement.
+
+The sentiment index is predominantly positive throughout the sample, reflecting the
+structurally bullish orientation of both communities. Sentiment volatility increases
+markedly after 2020, coinciding with the entry of r/WallStreetSilver and the broader
+retail momentum environment.
+
+\subsection{News Sentiment}
+
+Financial news headlines are collected from the GDELT Project, a free global news
+index covering English and non-English sources. A keyword search for ``silver'' is
+run over the period January 2020 to December 2024 in rolling two-week windows,
+yielding a large corpus of articles. Non-English articles are excluded prior to sentiment
+scoring, as the FinBERT model used for news is trained exclusively on English-language
+financial text.
+
+News headlines are scored with \texttt{ProsusAI/finbert}, which was fine-tuned on the
+Financial PhraseBank dataset and is well-calibrated for formal financial language. The
+sentiment score for each article is $s_i = p_i^+ - p_i^-$, where $p_i^+$ and $p_i^-$
+are the probabilities of the positive and negative classes respectively. A daily news
+sentiment index is computed as the simple mean across all articles on that day.
+
+The dual-model approach---FinBERT for news, Twitter-RoBERTa for Reddit---is motivated
+by the empirical observation that the two models respond very differently to domain-specific
+language. On formal bearish news such as ``Silver prices crash amid rising dollar and Fed
+hawkishness,'' FinBERT assigns a sentiment score of $-0.822$ while RoBERTa assigns $-0.554$.
+On informal bullish Reddit text such as ``Silver is going to the moon! Buy buy buy!'',
+FinBERT assigns a near-neutral score of $+0.016$ while RoBERTa correctly assigns $+0.964$.
+
+\subsection{Train, Validation, and Test Split}
+
+The full feature matrix is split chronologically into three non-overlapping sets:
+
+\begin{itemize}
+    \item \textbf{Train}: 5 January 2015 -- 31 December 2021 (1,755 trading days)
+    \item \textbf{Validation}: 3 January 2022 -- 30 December 2022 (251 trading days)
+    \item \textbf{Test}: 3 January 2023 -- 30 December 2024 (500 trading days)
+\end{itemize}
+
+\noindent The train set covers the pre-squeeze period and the squeeze itself. The
+validation set (2022) is used for LSTM hyperparameter tuning and early stopping only.
+All reported metrics are computed on the held-out test set (2023--2024), which
+represents genuinely unseen data for all models.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Methodology}
+\label{sec:method}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Feature Engineering}
+
+The feature matrix is constructed from daily prices and forward-filled monthly macro
+data. Price-based features include log-returns of silver, gold, copper, the S\&P 500,
+and the USD index, as well as the gold-to-silver ratio (a commonly monitored relative
+value indicator). Lag features of the silver log-return at horizons 1, 2, 3, 5, and 10
+days are included to capture any AR structure. Rolling volatility is estimated at 5-day
+and 21-day windows, and rolling momentum (cumulative return) at the same windows.
+Monthly macro series enter both in levels and as month-over-month percentage changes,
+the latter to ensure stationarity.
+
+\subsection{ARIMA and ARIMAX}
+
+The ARIMA($p$, $d$, $q$) model is fitted to the daily silver log-return series.
+Since log-returns are stationary by construction (ADF test rejects the unit-root
+null at 1\%), the differencing order is fixed at $d=0$. The AR order $p$ and MA
+order $q$ are selected jointly via an AIC grid search over $p, q \in \{0, 1, 2, 3, 4\}$,
+yielding 25 candidate models.
+
+The ARIMAX extension augments the ARIMA model with a vector of exogenous regressors.
+Following the feature engineering step, the exogenous variables used are the
+contemporaneous log-returns of gold, the US dollar index, copper, and the S\&P 500.
+These are known at time $t$ under the convention that all daily returns are computed
+from close prices, and their inclusion does not constitute look-ahead bias for a
+one-step-ahead forecasting exercise.
+
+Two forecast schemes are evaluated for both ARIMA and ARIMAX:
+
+\begin{itemize}
+    \item \textbf{Recursive (expanding window)}: The model is re-estimated at each
+    step $t$ using all available data from the start of the sample up to $t-1$.
+    This scheme is theoretically optimal if the data-generating process is stationary,
+    as more data is always better.
+    \item \textbf{Rolling (fixed window)}: The model is re-estimated at each step
+    using only the most recent 500 observations. This scheme is more robust to
+    structural breaks and regime changes---a relevant consideration given the
+    qualitative shift in the silver market around 2020--2021.
+\end{itemize}
+
+\subsection{Mixed Data Sampling (MIDAS)}
+
+The MIDAS regression, as described in Section~\ref{sec:lit}, allows monthly macro
+variables to enter the daily forecasting equation directly without temporal aggregation.
+The U-MIDAS variant (Unrestricted MIDAS) stacks the last $K$ monthly observations
+as separate OLS regressors, imposing no constraint on the lag polynomial. This serves
+as an interpretable baseline.
+
+The restricted Beta-MIDAS model, implemented in R using the \texttt{midasr} package
+\parencite{ghysels2016r}, imposes the Beta weighting function in Equation~\eqref{eq:beta}
+and estimates the two shape parameters $(\theta_1, \theta_2)$ by nonlinear least squares.
+The frequency ratio is $m \approx 22$ trading days per calendar month. We use $K = 3$
+monthly lags, so the model draws on approximately the past quarter of macro data when
+forming each daily forecast.
+
+\subsection{Long Short-Term Memory (LSTM)}
+
+The LSTM model ingests a sequence of the past $L = 20$ trading days of feature
+vectors and outputs a scalar prediction of the next-day silver log-return. The
+architecture consists of two stacked LSTM layers with 64 hidden units each and
+dropout of 0.2 between layers, followed by a linear output layer. The model is
+trained with the Adam optimiser at learning rate $10^{-3}$, gradient clipping at
+norm 1.0, and early stopping with patience 7 on the validation loss. All features
+are standardised using the training-set mean and standard deviation before
+being passed to the model.
+
+Training is performed on Apple Silicon GPU via the PyTorch MPS backend.
+The best checkpoint (lowest validation MSE) is saved and used for test evaluation.
+
+\subsection{Sentiment as a Feature}
+
+The daily sentiment score $S_t$ enters the econometric and LSTM models as an
+additional feature. For the econometric models (ARIMAX, MIDAS), it is added as
+an exogenous regressor alongside the market variables. For the LSTM, it is appended
+to the feature vector at each timestep in the input sequence. This allows a direct
+ablation: comparing model performance with and without $S_t$ in the feature set
+isolates the marginal contribution of sentiment.
+
+\subsection{Evaluation Metrics}
+
+All models are evaluated on the test set (500 trading days, 2023--2024) using:
+
+\begin{itemize}
+    \item \textbf{RMSE}: Root Mean Squared Error, which penalises large errors
+    quadratically. $\text{RMSE} = \sqrt{\frac{1}{T}\sum_t (r_t - \hat{r}_t)^2}$.
+
+    \item \textbf{MAE}: Mean Absolute Error, which treats all errors equally.
+    $\text{MAE} = \frac{1}{T}\sum_t |r_t - \hat{r}_t|$.
+
+    \item \textbf{DA}: Directional Accuracy, the fraction of days on which the
+    predicted sign of the return matches the actual sign.
+    $\text{DA} = \frac{1}{T}\sum_t \mathbf{1}[\text{sign}(r_t) = \text{sign}(\hat{r}_t)]$.
+
+    \item \textbf{WDA}: Weighted Directional Accuracy, which weights each day by
+    the absolute magnitude of the actual return, giving more credit to getting
+    the direction right on large moves.
+    $\text{WDA} = \frac{\sum_t |r_t| \cdot \mathbf{1}[\text{sign}(r_t) = \text{sign}(\hat{r}_t)]}{\sum_t |r_t|}$.
+
+    \item \textbf{Diebold--Mariano test}: Following \textcite{diebold1995}, we test
+    the null hypothesis of equal predictive accuracy between pairs of models using
+    the DM statistic with Newey--West long-run variance estimation.
+\end{itemize}
+
+\noindent MAPE (Mean Absolute Percentage Error) is excluded from the comparison.
+Log-returns are frequently close to zero, causing MAPE to explode due to division
+by small numbers, making it unreliable and non-comparable across models for this
+target variable.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Results}
+\label{sec:results}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{ARIMA and ARIMAX}
+
+Table~\ref{tab:arima_results} reports the out-of-sample performance of the ARIMA
+and ARIMAX models on the 500-day test set, alongside the na\"ive benchmark (predicting
+today's return equals yesterday's return).
+
+\begin{table}[H]
+    \centering
+    \caption{ARIMA and ARIMAX out-of-sample results, test set 2023--2024 ($T = 500$)}
+    \label{tab:arima_results}
+    \begin{tabular}{lrrrr}
+        \toprule
+        Model & RMSE & MAE & DA & WDA \\
+        \midrule
+        Na\"ive ($r_{t-1}$)   & 0.025554 & 0.019700 & 0.477 & 0.481 \\
+        ARIMA recursive       & 0.018139 & 0.013363 & 0.472 & 0.492 \\
+        ARIMA rolling         & 0.018395 & 0.013600 & 0.458 & 0.439 \\
+        ARIMAX recursive      & 0.010721 & 0.008672 & 0.748 & 0.890 \\
+        ARIMAX rolling        & 0.010859 & 0.008789 & 0.740 & 0.891 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Several findings are notable. First, pure ARIMA achieves a directional accuracy of
+$0.472$---marginally worse than the na\"ive benchmark---confirming that silver
+log-returns contain negligible linear autocorrelation structure exploitable from their
+own history alone. This is consistent with the efficient market hypothesis applied
+to a liquid commodity market.
+
+Second, the addition of exogenous market variables in ARIMAX produces a dramatic
+improvement: directional accuracy rises from $0.472$ to $0.748$, and the weighted
+directional accuracy to $0.890$. The latter implies that on the days with the largest
+price moves---precisely the days that matter most for trading---ARIMAX correctly
+identifies the direction of movement approximately nine times in ten. This result
+establishes that silver returns are strongly co-driven by contemporaneous movements
+in gold, the US dollar, copper, and equities, even if they are not predictable from
+their own history.
+
+Third, the difference between the recursive and rolling forecast schemes is negligible
+for ARIMAX (RMSE $0.010721$ vs $0.010859$), suggesting that the relationship between
+silver returns and the exogenous variables is sufficiently stable over the 2015--2024
+period that dropping older observations provides no benefit.
+
+% TODO: insert results for MIDAS and LSTM once notebooks are run
+% then update the comparison table below
+
+\subsection{Model Comparison}
+% TODO: insert model_comparison.png
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{data/processed/model_comparison.png}
+%     \caption{Out-of-sample forecast accuracy across all models. Green bars indicate
+%     the best-performing model on each metric.}
+%     \label{fig:model_comparison}
+% \end{figure}
+
+\subsection{Sentiment Ablation}
+
+% TODO: run models with and without sentiment_score and report difference in DA/WDA
+% Prediction: sentiment adds most value in 2021 squeeze episode
+
+\subsection{Silver Squeeze Episode (January--February 2021)}
+
+The January 2021 silver squeeze provides a natural experiment for the retail hypothesis.
+r/WallStreetSilver was created on 28 January 2021; silver spot rose from approximately
+\$25/oz to a peak near \$30/oz before retreating. The training set includes this episode,
+allowing us to examine whether sentiment-augmented models assigned higher predicted
+returns during the squeeze relative to their sentiment-free counterparts.
+
+% TODO: produce zoom-in chart and compute sentiment-augmented vs baseline DA
+% for the window 2021-01-28 to 2021-02-05
+
+\subsection{Diebold--Mariano Tests}
+
+% TODO: populate with DM test results from 07_evaluation.ipynb once all
+% prediction CSVs are saved
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+\label{sec:conclusion}
+% ─────────────────────────────────────────────────────────────────────────────
+
+This thesis set out to test whether retail trader sentiment, extracted from Reddit and
+financial news, can improve the out-of-sample forecasting accuracy of daily silver
+log-returns. The results so far establish a clear hierarchy among model families.
+Pure ARIMA, which uses only the history of silver returns, has essentially no directional
+skill---confirming that silver is close to a random walk when considered in isolation.
+The ARIMAX model, which adds contemporaneous returns of gold, the US dollar, copper,
+and the S\&P 500, achieves a directional accuracy of $0.748$ and a weighted directional
+accuracy of $0.890$, demonstrating that the cross-asset linkages of silver are strong and
+stable predictors of its short-term direction.
+
+The marginal contribution of the retail sentiment index---constructed from 17,000 Reddit
+posts and a large news corpus via domain-appropriate transformer models---is assessed in
+the ablation study. Whether sentiment provides incremental predictive power beyond the
+already informative market variables is the core empirical question of the thesis and
+remains to be answered by the MIDAS and LSTM results.
+
+\textbf{Limitations.} Several limitations should be noted. The Reddit data collected
+via Arctic Shift is capped at 100 posts per monthly window, which means early-period
+post counts (approximately 1,200 per year, 2015--2019) are likely an undercount of
+actual community activity. The GDELT news corpus is restricted to English-language
+sources, excluding potentially relevant coverage in other languages. The MAPE metric
+was found to be unreliable for log-return series and is excluded from the comparison.
+Finally, all models are evaluated on daily close-to-close returns; intraday dynamics,
+which may be more directly driven by retail order flow, are outside the scope of this
+analysis.
+
+\textbf{Future work.} Natural extensions include the use of intraday data to study
+the timing of retail-driven price impacts, application of Granger causality testing
+to formally test whether sentiment leads returns, and the exploration of non-linear
+sentiment effects using regime-switching models that allow the coefficient on sentiment
+to vary between high- and low-volatility periods.
+
+% ─────────────────────────────────────────────────────────────────────────────
+%  References
+% ─────────────────────────────────────────────────────────────────────────────
+\newpage
+\printbibliography
+
+% ─────────────────────────────────────────────────────────────────────────────
+%  Appendix
+% ─────────────────────────────────────────────────────────────────────────────
+\newpage
+\appendix
+
+\section{EDA Charts}
+% TODO: insert ACF/PACF plots, return distribution, QQ plots from 01_eda.ipynb
+
+\section{ARIMA Order Selection}
+% TODO: insert AIC grid search results table from 03_arima_baseline.ipynb
+
+\section{LSTM Training Curve}
+% TODO: insert train vs val loss plot from 05_lstm.ipynb
+
+\section{Robustness Checks}
+% TODO: alternative rolling window sizes (250, 750), sentiment with equal
+% weighting (no upvote weights), ARIMAX with sentiment added
+
+\end{document}

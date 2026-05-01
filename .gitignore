@@ -1,6 +1,21 @@
 # PDFs
 *.pdf
 
+# LaTeX auxiliary files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.lot
+*.lof
+
 # Data — raw and processed (too large for git, use DVC or shared drive)
 data/raw/
 data/processed/
