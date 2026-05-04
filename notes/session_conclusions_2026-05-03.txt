@@ -1,0 +1,160 @@
+SESSION CONCLUSIONS — 2026-05-03
+================================================================================
+
+ON THE DATA AND FREQUENCY
+--------------------------
+- Switched from daily 1-step-ahead to weekly 5-step-ahead forecasting.
+  Created 03b_arima_daily.ipynb to keep daily analysis alongside the weekly one.
+  The exog problem (needing future values of gold/USD/copper/S&P500 to forecast
+  multiple steps ahead) is what made weekly aggregation the right choice for ARIMAX.
+
+- Log returns are additive so resample('W-FRI').sum() gives exact weekly returns
+  — no approximation involved.
+  Weekly log return = sum of 5 daily log returns (exact identity, not an estimate).
+
+- Sentiment aggregated with .mean() (not .sum()) since scores are bounded [-1, 1]
+  and summing would produce an unbounded number with no clear interpretation.
+
+
+ON WEEKLY SILVER RETURNS
+-------------------------
+- ACF/PACF completely flat at all lags.
+- Ljung-Box test: p = 0.358 — no significant autocorrelation up to lag 20.
+- AIC grid search selects ARIMA(0,0,0) — constant mean with white noise.
+- Weekly silver log-returns are white noise.
+
+- This is consistent with weak-form EMH (Efficient Market Hypothesis):
+  past prices are already fully reflected in the current price.
+
+- This actually strengthens the thesis narrative: if ARIMA is useless,
+  all predictive power must come from external variables (market co-movements
+  and sentiment) — which is exactly what the thesis tests.
+
+- Ad-hoc order comparison (ARIMA(0,0,0), (0,0,2), (2,0,0) vs AIC-best)
+  belongs in the daily notebook (03b), motivated by the daily ACF/PACF lag-2
+  spike. At weekly frequency no order comparison is needed — white noise wins.
+
+
+ON SENTIMENT VS RETURNS (SCATTER ANALYSIS)
+--------------------------------------------
+- Reddit sentiment: r ≈ 0 at all frequencies and lags. All p > 0.30.
+  Completely insignificant. No raw linear relationship with silver returns.
+
+- News sentiment (FinBERT):
+    - Daily (both lags): r ≈ 0.00, p > 0.50. Nothing.
+    - Weekly lagged: r = -0.066, p = 0.294. Not significant.
+    - Weekly contemporaneous: r = 0.178, p = 0.005. Significant — BUT:
+        (a) r² = 0.178² ≈ 3.2% of variance explained — practically negligible.
+        (b) Not usable for forecasting: you cannot observe the full week's
+            news aggregate before the week ends.
+        (c) Likely reflects news reacting to prices, not causing them.
+
+- Rolling 52-week correlation (lagged Reddit vs weekly silver returns):
+    - Stays near zero throughout most of the sample.
+    - Goes NEGATIVE around and after the January 2021 squeeze.
+    - Interpretation: Reddit was overwhelmingly bullish during the squeeze
+      but prices fell sharply afterward — delayed mean-reversion, not a
+      leading indicator.
+
+
+ON STATISTICAL VS PRACTICAL SIGNIFICANCE
+-----------------------------------------
+- r  = Pearson correlation coefficient (direction and strength, -1 to +1)
+- r² = coefficient of determination = percentage of variance explained
+
+  r = 0.178  →  r² = 0.032  →  3.2% of variance explained
+  r = 0.5    →  r² = 0.25   →  25% of variance explained
+  r = 0.9    →  r² = 0.81   →  81% of variance explained
+
+- With n=255 weekly observations, even tiny effects can reach p<0.05.
+  Statistical significance ≠ practical significance.
+  Always report r² alongside p-value for financial data.
+
+
+ON WHY SCATTER AND ARIMAX CAN DISAGREE
+----------------------------------------
+- Scatter tests the raw correlation between sentiment and silver returns
+  in isolation — ignoring all other variables.
+
+- ARIMAX tests whether sentiment explains residual variation LEFT OVER
+  after gold, USD, copper and S&P500 are already accounted for.
+
+- These are two different questions. It is not a contradiction if scatter
+  shows r≈0 while ARIMAX shows a small marginal improvement.
+
+- Market co-movements already explain ~70% of silver's weekly direction.
+  Sentiment might correlate with the unexplained 30% even if it has no
+  raw correlation with the total.
+
+
+ON THE WEEKLY ARIMAX RESULTS
+------------------------------
+- ARIMA recursive: DA=0.486, ARIMA rolling: DA=0.429. Both near random.
+  Confirms white noise finding.
+
+- ARIMAX recursive (lagged): DA=0.686, WDA=0.757
+  ARIMAX rolling   (lagged): DA=0.695, WDA=0.771
+  Market co-movements still work well at weekly frequency.
+
+- Sentiment comparison (rolling, lagged 1 week):
+    No sentiment:    DA=0.695  WDA=0.771
+    +Reddit:         DA=0.714  WDA=0.809  (+1.9pp DA, +3.8pp WDA)
+    +News:           DA=0.695  WDA=0.815  (no DA gain, +4.4pp WDA)
+    +Reddit+News:    DA=0.695  WDA=0.815  (Reddit gain disappears)
+
+- Diebold-Mariano tests on all sentiment comparisons: p > 0.90 for all.
+  The small apparent gains are statistically indistinguishable from noise.
+  NULL RESULT CONFIRMED at weekly frequency.
+
+
+ON THE LOOK-AHEAD BIAS ILLUSTRATION (03b_arima_daily.ipynb)
+-------------------------------------------------------------
+- Look-ahead version uses same-day exog (gold/USD/copper/S&P500 closing
+  prices on day t to predict silver return on day t).
+- This is a bias: you cannot know gold's closing price on day t before
+  silver also closes on day t.
+- Kept in 03b as an illustration — the DA/WDA gap between look-ahead and
+  lagged versions quantifies exactly how much the bias inflates metrics.
+- Look-ahead version is excluded from all model comparisons in 07_evaluation.
+
+
+ON THE LSTM NOTEBOOK (05_lstm.ipynb — rewritten)
+--------------------------------------------------
+Major bug found and fixed:
+- Original predictions were not inverse-transformed from z-score space
+  back to log-return space. RMSE and MAE were in standardized units,
+  completely incomparable to ARIMA metrics. DA was still correct (scaling
+  preserves sign) but magnitude metrics were wrong.
+
+New structure — 4 variants mirroring ARIMA exactly:
+  LSTM-Y       silver_return only              (equivalent to ARIMA)
+  LSTM-EXOG    silver_return + market vars      (equivalent to ARIMAX)
+  LSTM-REDDIT  LSTM-EXOG + reddit_sentiment     (equivalent to ARIMAX+Reddit)
+  LSTM-NEWS    LSTM-EXOG + news_sentiment       (equivalent to ARIMAX+News)
+
+Key advantage of LSTM over ARIMAX for sentiment:
+- ARIMAX uses only t-1 sentiment (one lag).
+- LSTM receives the full 20-day history of sentiment scores in its input
+  sequence. It can learn multi-lag, non-linear patterns that ARIMAX misses.
+
+Also fixed: MAPE removed (unreliable for log returns near zero),
+predictions saved with date index for alignment in 07_evaluation.
+
+
+OVERALL THESIS DIRECTION
+-------------------------
+- The retail hypothesis has NO linear support at any frequency tested
+  (daily or weekly, ARIMAX or scatter).
+- The LSTM is the remaining test for non-linear, multi-lag sentiment effects.
+- If LSTM also finds nothing: clean conclusion — retail sentiment is not a
+  predictive signal at daily or weekly frequency in linear or non-linear models.
+- The thesis framing shifts from "sentiment drives silver" to "we carefully
+  tested whether sentiment drives silver and found no evidence at these
+  frequencies" — which is a legitimate and publishable finding.
+
+EMH framing:
+- Weak-form EMH holds: no autocorrelation, ARIMA useless.
+- Semi-strong EMH: public sentiment data (news, Reddit) does not appear
+  to be mispriced at daily or weekly frequency — ARIMAX and DM tests confirm.
+- LSTM tests the non-linear semi-strong hypothesis.
+================================================================================
