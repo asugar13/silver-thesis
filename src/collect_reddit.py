@@ -117,28 +117,34 @@ def fetch_pushshift_posts(subreddit: str, start_epoch: int, end_epoch: int,
 
 
 def fetch_full_history(subreddit: str, start: str, end: str,
-                       window_days: int = 30) -> pd.DataFrame:
+                       window_days: int = 2) -> pd.DataFrame:
     """
-    Pages through Arctic Shift in monthly windows to get full history.
-    Empty windows at the start are fine (subreddit may not exist yet).
-    Empty windows AFTER data has been found raise an error — likely an API problem.
+    Pages through Arctic Shift to get full post history.
+
+    Uses large 90-day windows while the subreddit has no data yet (fast skip
+    over years before the subreddit existed), then switches to small 2-day
+    windows once the first posts are found (to stay under the 100-post cap).
+
+    Empty windows at the start are fine — subreddit may not exist yet.
+    Empty windows AFTER data has been found raise an error (likely an API gap).
     """
     import time as _time
     from datetime import datetime, timedelta
 
-    start_dt    = datetime.fromisoformat(start)
-    end_dt      = datetime.fromisoformat(end)
-    frames      = []
-    seen_data   = False   # flips to True once we receive the first non-empty window
+    PRESCAN_DAYS = 90   # large window while subreddit not yet active — skips fast
+    ACTIVE_DAYS  = 7    # weekly window once posts exist
+
+    start_dt  = datetime.fromisoformat(start)
+    end_dt    = datetime.fromisoformat(end)
+    frames    = []
+    seen_data = False   # flips to True once we receive the first non-empty window
 
     current = start_dt
     while current < end_dt:
-        next_dt = min(current + timedelta(days=window_days), end_dt)
+        step    = ACTIVE_DAYS if seen_data else PRESCAN_DAYS
+        next_dt = min(current + timedelta(days=step), end_dt)
         print(f"  {subreddit}: {current.date()} -> {next_dt.date()}")
 
-        # Single request per window — pagination not used because Arctic Shift's
-        # cursor doesn't work reliably. Instead we use small windows (2 days)
-        # to stay naturally under the 100-post cap.
         window_df = fetch_pushshift_posts(
             subreddit,
             int(current.timestamp()),
@@ -146,9 +152,9 @@ def fetch_full_history(subreddit: str, start: str, end: str,
             size=100,
         )
 
-        # Warn if a 2-day window still hits 100 — means we're missing posts
-        if len(window_df) == 100:
-            print(f"    WARNING: hit 100-post cap on {current.date()} -> {next_dt.date()} — some posts may be missing")
+        # Warn if small active-phase window still hits 100 — means we're missing posts
+        if seen_data and len(window_df) == 100:
+            print(f"    WARNING: hit 100-post cap — some posts may be missing")
 
         if window_df.empty:
             if seen_data:
@@ -158,7 +164,7 @@ def fetch_full_history(subreddit: str, start: str, end: str,
                     f"Possible API issue or rate limit. Stopping to avoid a gap in data."
                 )
             else:
-                print(f"    No posts yet — subreddit may not exist for this period, skipping.")
+                print(f"    No posts yet — skipping.")
         else:
             seen_data = True
             print(f"    {len(window_df)} posts")
@@ -185,12 +191,16 @@ def main():
 
     # Option B: full history via Arctic Shift (recommended for the thesis)
     print("Fetching full history via Arctic Shift...")
-    TARGET_SUBS = ["WallStreetSilver", "Silverbugs"]
+    # WallStreetSilver was created in Jan 2021 — start from 2020-01-01 so the
+    # prescan phase only burns ~4 windows before finding the first posts.
+    # Silverbugs dates back to ~2012 so 2015-01-01 is fine.
+    SUB_STARTS = {
+        "WallStreetSilver": "2020-01-01",
+        "Silverbugs":       "2015-01-01",
+    }
     hist_frames = []
-    for sub in TARGET_SUBS:
-        # 2-day windows: keeps each request well under 100 posts so we don't
-        # rely on pagination (which Arctic Shift doesn't support reliably)
-        df = fetch_full_history(sub, start="2015-01-01", end="2024-12-31", window_days=2)
+    for sub, sub_start in SUB_STARTS.items():
+        df = fetch_full_history(sub, start=sub_start, end="2024-12-31")
         hist_frames.append(df)
 
     if hist_frames:

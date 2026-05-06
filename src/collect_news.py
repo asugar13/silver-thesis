@@ -58,8 +58,10 @@ def fetch_gdelt_headlines(keywords: list, start: str, end: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-def fetch_gdelt_full(keywords: list, start: str, end: str) -> pd.DataFrame:
-    """Pages through GDELT in 2-week windows."""
+def fetch_gdelt_full(keywords: list, start: str, end: str, window_days: int = 7) -> pd.DataFrame:
+    """Pages through GDELT in weekly windows (default 7 days).
+    14-day windows hit the 250-article cap for silver in 2025/2026 — 7 days
+    stays under the cap for most periods while halving lost articles."""
     from datetime import datetime, timedelta
     frames   = []
     start_dt = datetime.fromisoformat(start)
@@ -67,7 +69,7 @@ def fetch_gdelt_full(keywords: list, start: str, end: str) -> pd.DataFrame:
     current  = start_dt
 
     while current < end_dt:
-        next_dt = min(current + timedelta(days=14), end_dt)
+        next_dt = min(current + timedelta(days=window_days), end_dt)
         print(f"  GDELT: {current.date()} -> {next_dt.date()}")
         df = fetch_gdelt_headlines(keywords,
                                    current.strftime("%Y-%m-%d"),
@@ -161,13 +163,25 @@ SILVER_KEYWORDS = ["silver"]
 def main():
     os.makedirs(RAW_DIR, exist_ok=True)
 
-    # GDELT — full historical coverage
-    print("Fetching GDELT news (2015-2024)...")
-    gdelt_df = fetch_gdelt_full(SILVER_KEYWORDS, "2020-01-01", "2024-12-31")
+    # GDELT — incremental update from last collected date to today
+    import pandas as pd
+    from datetime import datetime, timedelta
+    gdelt_out = f"{RAW_DIR}/news_gdelt.csv"
+    if os.path.exists(gdelt_out):
+        existing = pd.read_csv(gdelt_out)
+        existing['_date'] = pd.to_datetime(existing['seendate'], format='%Y%m%dT%H%M%SZ', errors='coerce')
+        fetch_from = (existing['_date'].max() + timedelta(days=1)).strftime('%Y-%m-%d')
+        existing = existing.drop(columns=['_date'])
+    else:
+        existing = pd.DataFrame()
+        fetch_from = "2015-01-01"
+    fetch_to = datetime.now().strftime('%Y-%m-%d')
+    print(f"Fetching GDELT news ({fetch_from} -> {fetch_to})...")
+    gdelt_df = fetch_gdelt_full(SILVER_KEYWORDS, fetch_from, fetch_to, window_days=7)
     if not gdelt_df.empty:
-        out = f"{RAW_DIR}/news_gdelt.csv"
-        gdelt_df.to_csv(out, index=False)
-        print(f"  Saved {gdelt_df.shape} -> {out}\n")
+        combined = pd.concat([existing, gdelt_df], ignore_index=True) if not existing.empty else gdelt_df
+        combined.to_csv(gdelt_out, index=False)
+        print(f"  Saved {combined.shape} -> {gdelt_out}\n")
 
     # # Alpha Vantage — comes with pre-computed sentiment (saves FinBERT time on news)
     # print("Fetching Alpha Vantage news sentiment...")
