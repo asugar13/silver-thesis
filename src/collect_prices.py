@@ -50,6 +50,8 @@ TICKERS = {
     "sp500":     "^GSPC",
     "tip_etf":   "TIP",
     "copper":    "HG=F",
+    "vix":       "^VIX",      # Fear index — risk-off spikes can drive safe-haven silver demand
+    "oil":       "CL=F",      # WTI crude — input cost for mining, industrial demand proxy
 }
 
 def fetch_daily_prices(tickers: dict, start: str, end: str) -> pd.DataFrame:
