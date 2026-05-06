@@ -19,6 +19,7 @@ def eda_transform(series, transform: str = None, lags: int = 40):
     transform : {'log', 'square', 'delta', None}
     lags      : int — ACF/PACF lags
     """
+    lb_lags = [5, 10, 15, 20]
     # ── 1. Transform ──────────────────────────────────────────────────────────
     if transform == 'log':
         ts = np.log(series)
@@ -96,10 +97,11 @@ def eda_transform(series, transform: str = None, lags: int = 40):
     print("  →", "Stationary (reject H₀)" if adf_p < 0.05 else "Non-stationary (fail to reject H₀)")
 
     # ── 7. Ljung-Box ──────────────────────────────────────────────────────────
-    lb = acorr_ljungbox(ts, lags=[lags], return_df=True)
-    pval = lb['lb_pvalue'].iloc[0]
-    print(f"\nLjung-Box (lag={lags}): p-value = {pval:.4f}")
-    print("  →", "Autocorrelation present" if pval < 0.05 else "No significant autocorrelation")
+    lb = acorr_ljungbox(ts, lags=lb_lags, return_df=True)
+    print("\nLjung-Box:")
+    for lag, row in lb.iterrows():
+        pval = row['lb_pvalue']
+        print(f"  lag={lag}: p-value = {pval:.4f}  → {'Autocorrelation present' if pval < 0.05 else 'No significant autocorrelation'}")
 
     # ── 8. Normality tests ────────────────────────────────────────────────────
     sw_stat, sw_p = shapiro(ts[:5000])   # Shapiro is unreliable on very large n
@@ -132,15 +134,16 @@ def eda_transform(series, transform: str = None, lags: int = 40):
 
     x = ts - ts.mean()
     lm_stat2, lm_p2, _, _ = het_arch(x.dropna(), nlags=lags)
-    lb_sq = acorr_ljungbox(x.dropna() ** 2, lags=[lags], return_df=True)
-    lb_sq_p = lb_sq['lb_pvalue'].iloc[0]
-    print(f"Ljung-Box on squared (lag={lags}): p={lb_sq_p:.4f}")
-    print("  →", "Autocorrelation in variance → ARCH likely"
-          if lb_sq_p < 0.05 else "No autocorrelation in variance")
+    lb_sq = acorr_ljungbox(x.dropna() ** 2, lags=lb_lags, return_df=True)
+    print("Ljung-Box on squared residuals:")
+    for lag, row in lb_sq.iterrows():
+        pval = row['lb_pvalue']
+        print(f"  lag={lag}: p-value = {pval:.4f}  → {'ARCH effects likely' if pval < 0.05 else 'No autocorrelation in variance'}")
 
     return {
         'transformed_series': ts,
         'adf': {'stat': adf_stat, 'pvalue': adf_p, 'crit': adf_cv},
-        'ljung_box': lb,
+        'ljung_box': lb,          # DataFrame indexed by lag
+        'ljung_box_sq': lb_sq,
         'shapiro': {'stat': sw_stat, 'pvalue': sw_p},
     }
