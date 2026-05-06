@@ -19,7 +19,11 @@ def eda_transform(series, transform: str = None, lags: int = 40):
     transform : {'log', 'square', 'delta', None}
     lags      : int — ACF/PACF lags
     """
-    lb_lags = [5, 10, 15, 20]
+    median_days = series.index.to_series().diff().dt.days.median()
+    if median_days is not None and median_days >= 5:
+        lb_lags = [2, 4, 8, 13]   # weekly: ~1m, 1q, 2q, 1y
+    else:
+        lb_lags = [5, 10, 20, 60]  # daily: 1w, 2w, 1m, 3m
     # ── 1. Transform ──────────────────────────────────────────────────────────
     if transform == 'log':
         ts = np.log(series)
