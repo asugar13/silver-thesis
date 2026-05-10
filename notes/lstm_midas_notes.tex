@@ -1,0 +1,381 @@
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage[colorlinks=true, linkcolor=black, urlcolor=blue]{hyperref}
+
+% code style
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{gray!8},
+  frame=single,
+  framerule=0pt,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{
+  {\large Working Notes} \\[0.4cm]
+  {\LARGE\bfseries LSTM and MIDAS: How the Notebooks Work}\\[0.4cm]
+  {\normalsize Thesis — Forecasting Silver Prices}
+}
+\author{Asier Ugartechea Perez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Purpose of this document}
+% ─────────────────────────────────────────────────────────────────────────────
+
+This document walks through the logic of two notebook families that differ from the
+ARIMA/VAR/Random Forest/XGBoost notebooks in their structure and implementation.
+The ARIMA and tree-based notebooks follow a nearly identical template; LSTM and MIDAS
+each have design decisions that are worth understanding before modifying them or
+drawing conclusions from their output.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{LSTM (\texttt{weekly/06\_lstm.ipynb})}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{What it does at a high level}
+
+The LSTM notebook trains a neural network that looks at the last 20 trading days of
+features---prices, market returns, and optionally sentiment---and predicts the next
+day's silver log-return. It tests four variants of increasing richness, mirroring the
+ARIMA ablation:
+
+\begin{table}[H]
+\centering
+\caption{LSTM variants and their ARIMA equivalents}
+\begin{tabular}{llp{5.5cm}}
+\toprule
+Variant & Features & ARIMA analogue \\
+\midrule
+\texttt{LSTM-Y}      & Silver return only       & ARIMA (univariate) \\
+\texttt{LSTM-EXOG}   & Silver + market variables & ARIMAX (no sentiment) \\
+\texttt{LSTM-REDDIT} & EXOG + Reddit sentiment  & ARIMAX + Reddit \\
+\texttt{LSTM-NEWS}   & EXOG + News sentiment    & ARIMAX + News \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Architecture}
+
+The model is a single-layer LSTM followed by a linear output layer:
+
+\begin{equation}
+  \hat{r}_{t+1} = W_{\text{out}} \cdot h_t^{(L)} + b
+\end{equation}
+
+\noindent where $h_t^{(L)}$ is the hidden state of the last LSTM layer at the final
+timestep of the input sequence. An LSTM maintains a hidden state and a cell state that
+it updates at each timestep, allowing information from earlier in the sequence to
+influence the prediction---unlike a feedforward network, which treats each timestep
+independently.
+
+In code:
+
+\begin{lstlisting}[language=Python]
+class LSTMForecaster(nn.Module):
+    def __init__(self, input_size, hidden_size=64, num_layers=2, dropout=0.2):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers=num_layers,
+                            batch_first=True, dropout=dropout)
+        self.fc = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        return self.fc(out[:, -1, :])  # use only the last timestep's hidden state
+\end{lstlisting}
+
+\noindent \texttt{out[:, -1, :]} extracts the hidden state at the last position of
+the sequence (day $t$), which the linear layer maps to a scalar return forecast.
+
+\subsection{Input sequences}
+
+The function \texttt{make\_sequences} slides a window of length
+\texttt{SEQ\_LEN = 20} across the data:
+
+\begin{itemize}
+  \item Input: rows $t - 20$ through $t - 1$ (20 days of history, all past)
+  \item Target: value at row $t$ (the next day's silver return)
+\end{itemize}
+
+This is strictly causal---no look-ahead bias. With \texttt{HORIZON = 1}, the target
+is simply $r_t$ and the inverse-scaling back to log-return units is:
+
+\begin{equation}
+  \hat{r}_t = \hat{z}_t \cdot \sigma + \mu
+\end{equation}
+
+\noindent where $\hat{z}_t$ is the network's output in standardised units and
+$(\mu, \sigma)$ are the training-set mean and standard deviation of the silver return,
+estimated with \texttt{StandardScaler}.
+
+\subsection{Training loop}
+
+Each variant is trained independently (fresh weights, fresh scaler):
+
+\begin{enumerate}
+  \item \textbf{Early stopping}: training halts if validation loss does not improve
+    for \texttt{PATIENCE = 10} consecutive epochs. The best checkpoint is saved and
+    reloaded for inference---so the reported metrics reflect the best validation-loss
+    weights, not the last epoch.
+  \item \textbf{Learning rate scheduler}: \texttt{ReduceLROnPlateau} halves the
+    learning rate when validation loss plateaus for 3 epochs, helping escape flat
+    regions of the loss landscape.
+  \item \textbf{Gradient clipping}: gradients are clipped at norm 1.0 to prevent
+    the exploding-gradient problem that can destabilise LSTM training.
+\end{enumerate}
+
+\subsection{Why LSTM underperforms ARIMAX}
+
+This is the most important thing to understand about the results. The LSTM achieves
+$\text{DA} \approx 0.52$---barely above chance---while ARIMAX achieves $\text{DA} =
+0.748$.
+
+The reason is structural. Silver's predictability comes almost entirely from a
+\emph{one-lag linear cross-asset signal}: yesterday's gold return, USD move, and
+copper return predict today's silver return with high fidelity. This is a simple
+linear relationship that ARIMAX encodes directly as a coefficient. The LSTM must
+\emph{discover} the same relationship through backpropagation across noisy 20-day
+sequences---with only 1,755 training observations. That is a very small dataset for a
+neural network, and the LSTM does not have enough data to reliably learn a signal that
+a linear model finds trivially.
+
+The robustness checks in the notebook confirm this: the result holds across
+\texttt{SEQ\_LEN} $\in \{1, 20\}$, feature sets of size 8 and 26, and learning rates
+$\{10^{-3}, 10^{-4}\}$.
+
+The key takeaway: the LSTM is not poorly implemented---it is limited by sample size
+relative to the simplicity of the underlying signal.
+
+\subsection{Sentiment in LSTM vs.\ ARIMAX}
+
+There is one way the LSTM handles sentiment differently from ARIMAX. ARIMAX uses only
+the previous day's sentiment score ($S_{t-1}$) as a single regressor. The LSTM
+receives the full 20-day history of sentiment in its input sequence, so it can in
+principle learn patterns like ``sustained bearish sentiment over three weeks precedes a
+price drop.'' Whether it actually learns such patterns given the training set size is
+an empirical question answered by comparing \texttt{LSTM-REDDIT} vs.\ \texttt{LSTM-Y}.
+
+\subsection{Outputs saved}
+
+\begin{itemize}
+  \item \texttt{metrics\_lstm.csv} --- DA, WDA, RMSE, MAE for all four variants
+  \item \texttt{preds\_lstm\_*.csv} --- actual and predicted returns for each variant
+    (used for DM tests and the forecast plot)
+  \item \texttt{period\_lstm\_weekly.csv} --- per-year WDA breakdown for the best
+    variant (added in the period-breakdown refactor)
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{MIDAS (\texttt{weekly/03\_midas.ipynb})}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{The problem MIDAS solves}
+
+All other models in this thesis use daily data throughout. MIDAS exists to answer a
+different question: can monthly macroeconomic variables (CPI, industrial production,
+the federal funds rate, real rates) improve silver return forecasts, even though they
+are only published once per month?
+
+The naive approach---forward-fill the monthly value across all trading days in that
+month and add it as a regressor---discards the information that there are actually
+three recent monthly observations available (the last three months), each with
+potentially different relevance. MIDAS handles this correctly by regressing the daily
+return on a \emph{weighted sum} of multiple monthly lags, where the weights are
+estimated from the data.
+
+\subsection{The MIDAS equation}
+
+For a single macro variable $x$ with frequency ratio $m \approx 22$ (trading days per
+month) and $K = 3$ monthly lags:
+
+\begin{equation}
+  r_t = \alpha + \beta \sum_{k=1}^{K} w(k;\, \theta)\, x_{k\text{ months ago}} + \varepsilon_t
+  \label{eq:midas_full}
+\end{equation}
+
+\noindent The weighting function $w(k; \theta)$ determines how much each monthly lag
+contributes. The key constraint is $\sum_k w(k;\theta) = 1$, so $\beta$ captures the
+total scale of the macro variable's influence while the weights capture its
+\emph{decay pattern}.
+
+\subsection{Weight functions}
+
+\paragraph{Beta polynomial.}
+\begin{equation}
+  w(k;\, \theta_1, \theta_2) =
+    \frac{(k/K)^{\theta_1 - 1}(1 - k/K)^{\theta_2 - 1}}{B(\theta_1, \theta_2)}
+\end{equation}
+
+The two parameters control the shape:
+\begin{itemize}
+  \item $\theta_1 = \theta_2 = 1$: uniform weights (same as U-MIDAS with equal
+    coefficients).
+  \item $\theta_1 < \theta_2$: more weight on recent lags (lag 1 dominates).
+  \item Hump-shaped: lag 2 matters most if the macro signal takes a month to
+    propagate into prices.
+\end{itemize}
+
+\paragraph{Exponential Almon (normalised).}
+\begin{equation}
+  w(k;\, \theta_1, \theta_2) = \frac{e^{\theta_1 k + \theta_2 k^2}}
+    {\sum_{j=1}^{K} e^{\theta_1 j + \theta_2 j^2}}
+\end{equation}
+
+Both polynomials are estimated by minimising training MSE over the shape parameters
+$(\theta_1, \theta_2)$ using the L-BFGS-B optimiser. The weight profiles are plotted
+in Section~7 of the notebook, showing how far back each macro variable's influence
+reaches.
+
+\subsection{The five models}
+
+\begin{enumerate}
+
+\item \textbf{U-MIDAS (Unrestricted MIDAS).} Treat all $K = 3$ monthly lags of all 4
+  macro variables as separate OLS regressors---$4 \times 3 = 12$ free coefficients plus
+  an intercept. No constraint on the lag polynomial. This is the interpretable baseline:
+  it is just OLS with many regressors.
+
+\item \textbf{ADL-MIDAS (Autoregressive Distributed Lag).} Add yesterday's silver
+  return as an AR(1) term to U-MIDAS. In practice this is the most useful variant
+  because the AR term absorbs any residual autocorrelation the macro lags do not
+  capture.
+
+\item \textbf{Beta-MIDAS (single predictor).} Instead of 3 free OLS weights per
+  variable, replace them with the 2-parameter Beta polynomial. Fit one model per macro
+  variable. This reduces overfitting: 2 parameters instead of 3 per variable.
+  The estimated $(\hat{\theta}_1, \hat{\theta}_2)$ can be interpreted directly: they
+  tell you the shape of the estimated impulse response of silver returns to that macro
+  variable.
+
+\item \textbf{Multi-predictor Beta-MIDAS.} All 4 macro variables enter jointly, each
+  with its own Beta polynomial. The optimiser finds 8 shape parameters simultaneously.
+  This is the full MIDAS model used in the literature.
+
+\item \textbf{MIDAS + Sentiment.} The weekly Reddit sentiment index is added as a
+  fifth predictor with its own Beta polynomial. Weekly data sits at an intermediate
+  frequency (between daily silver returns and monthly macro), so it enters the MIDAS
+  framework naturally.
+
+\end{enumerate}
+
+\subsection{Why R?}
+
+The \texttt{midasr} package provides the nonlinear optimisation for the Beta and Almon
+weight functions, including gradient-based fitting of $(\theta_1, \theta_2)$ with
+constraints $\theta_i > 0$. Implementing this cleanly in Python would require writing
+the optimisation loop from scratch. The evaluation metrics (RMSE, MAE, DA, WDA) are
+re-implemented in R at the top of the notebook to match the Python definitions exactly.
+
+\subsection{What ``mixed frequency'' means in practice}
+
+On any given trading day $t$, the lag matrix for CPI looks like this (with $K = 3$):
+
+\begin{table}[H]
+\centering
+\caption{Lag matrix structure for CPI on a given test day}
+\begin{tabular}{lll}
+\toprule
+Column & Contents & Recency \\
+\midrule
+\texttt{cpi\_lag1} & CPI published in the current month & Most recent \\
+\texttt{cpi\_lag2} & CPI published in the previous month & 1 month ago \\
+\texttt{cpi\_lag3} & CPI published two months ago & 2 months ago \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The function \texttt{build\_lag\_matrix} constructs this by, for each daily
+date, looking back and grabbing the last 3 monthly observations that were available
+\emph{on or before} that date. This is the correct causal construction: it uses only
+information that would have been published before day $t$.
+
+\subsection{Test window considerations}
+
+Because monthly macro data requires at least 3 historical observations before the first
+complete lag matrix can be formed, the first few rows of the test set are excluded
+(this is handled by the \texttt{ok\_test} mask). In practice, with data starting in
+2015 and a test set from January 2023, all test rows have complete lag matrices and the
+effective test $n$ matches the other models.
+
+\subsection{Outputs saved}
+
+\begin{itemize}
+  \item \texttt{metrics\_midas.csv} --- DA, WDA, RMSE, MAE for all model variants
+  \item \texttt{preds\_umidas.csv} --- actual and predicted returns for the best
+    variant (lowest RMSE)
+  \item \texttt{period\_midas\_weekly.csv} --- per-year WDA breakdown (added in the
+    period-breakdown refactor)
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Daily versions}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{LSTM}
+
+The current \texttt{weekly/06\_lstm.ipynb} already uses daily data throughout
+(\texttt{train.csv}/\texttt{val.csv}/\texttt{test.csv} are daily files) with
+\texttt{HORIZON = 1} (predict the next \emph{day}). It is in the \texttt{weekly/}
+folder by convention but is architecturally a daily model. A \texttt{daily/06\_lstm.ipynb}
+would be functionally the same notebook with the output files renamed
+(\texttt{metrics\_lstm\_daily.csv}, \texttt{period\_lstm\_daily.csv}) and aligned
+with the daily model family.
+
+\subsection{MIDAS}
+
+MIDAS is already a daily-target model: the dependent variable is the daily silver
+log-return $r_t$. The ``mixed'' part is the \emph{monthly} macro inputs, not the
+target frequency. Creating a \texttt{daily/03\_midas.ipynb} means placing the same
+model in the daily family, saving \texttt{metrics\_midas\_daily.csv} and
+\texttt{period\_midas\_daily.csv}, so the evaluation notebook can include MIDAS in
+the daily frequency comparison.
+
+The notebook code does not change structurally; only the output filenames and the
+\texttt{metrics\_map} entry in \texttt{evaluation.ipynb} need updating.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Quick reference: key differences from ARIMA/VAR/RF notebooks}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{table}[H]
+\centering
+\caption{Design comparison across model families}
+\begin{tabular}{p{3cm}p{3cm}p{3cm}p{3cm}}
+\toprule
+ & ARIMA/VAR/RF/XGB & LSTM & MIDAS \\
+\midrule
+Language & Python & Python (PyTorch) & R (midasr) \\
+Input frequency & Daily or weekly & Daily (20-day sequences) & Daily target, monthly inputs \\
+Estimation & Closed-form or iterative & Backpropagation & NLS for weight params, OLS for scale \\
+Forecast scheme & Expanding + rolling & Single pass (train/val/test split) & Single pass \\
+Hyperparameter tuning & AIC / grid search & Validation loss (early stopping) & Manual ($K = 3$, Beta weights) \\
+Sentiment enters as & Scalar regressor at $t-1$ & Full sequence of $S_{t-k}$ for $k = 0 \ldots 19$ & Beta-weighted MIDAS predictor \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
