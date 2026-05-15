@@ -28,12 +28,14 @@ RAW_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'raw')
 # intent more directly linked to retail trading activity.
 KEYWORDS = ['silver', 'buy silver', 'silver price']
 
+from config import END_DATE
+
 # Overlapping 5-year windows — each returns weekly data.
 # Overlap of ~1 year is used to align the 0-100 scales across windows.
 WINDOWS = [
     ('2015-01-01', '2019-12-31'),   # 5 years → weekly
     ('2018-01-01', '2022-12-31'),   # 5 years → weekly
-    ('2022-01-01', '2026-05-04'),   # 4.3 years → weekly
+    ('2022-01-01',  END_DATE),      # ~4 years → weekly
 ]
 
 OVERLAP_DAYS = 365   # minimum overlap used for rescaling

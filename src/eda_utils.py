@@ -21,7 +21,7 @@ def eda_transform(series, transform: str = None, lags: int = 40):
     """
     median_days = series.index.to_series().diff().dt.days.median()
     if median_days is not None and median_days >= 5:
-        lb_lags = [2, 4, 8, 13]   # weekly: ~1m, 1q, 2q, 1y
+        lb_lags = [2, 4, 6, 8, 10, 12]   # weekly: ~1m, 1.5m, 1.5q, 2q, 2.5q, 3q
     else:
         lb_lags = [5, 10, 20, 60]  # daily: 1w, 2w, 1m, 3m
     # ── 1. Transform ──────────────────────────────────────────────────────────
