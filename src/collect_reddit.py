@@ -116,14 +116,49 @@ def fetch_pushshift_posts(subreddit: str, start_epoch: int, end_epoch: int,
     return df
 
 
+def fetch_window_complete(subreddit: str, start_ts: int, end_ts: int,
+                          size: int = 100, min_window_seconds: int = 3600,
+                          depth: int = 0) -> pd.DataFrame:
+    """
+    Fetch all posts in [start_ts, end_ts). When the API hits its per-call cap
+    (`size` posts returned), recursively split the window in half until each
+    sub-window returns fewer than `size` posts (i.e. complete coverage).
+
+    `min_window_seconds` caps recursion: if a window of that length still hits
+    the cap, we accept the partial result and emit a warning (avoids infinite
+    splitting in pathologically dense periods).
+    """
+    import time as _time
+
+    df = fetch_pushshift_posts(subreddit, start_ts, end_ts, size=size)
+    _time.sleep(1)
+
+    if len(df) < size:
+        return df
+
+    duration = end_ts - start_ts
+    indent   = "    " + "  " * depth
+    if duration <= min_window_seconds:
+        print(f"{indent}WARNING: {duration}s window still hit {size}-post cap — accepting partial data")
+        return df
+
+    mid_ts = start_ts + duration // 2
+    print(f"{indent}cap hit on {duration//3600}h window — splitting")
+    left  = fetch_window_complete(subreddit, start_ts, mid_ts, size, min_window_seconds, depth + 1)
+    right = fetch_window_complete(subreddit, mid_ts,   end_ts, size, min_window_seconds, depth + 1)
+    return pd.concat([left, right], ignore_index=True)
+
+
 def fetch_full_history(subreddit: str, start: str, end: str,
                        window_days: int = 2) -> pd.DataFrame:
     """
     Pages through Arctic Shift to get full post history.
 
     Uses large 90-day windows while the subreddit has no data yet (fast skip
-    over years before the subreddit existed), then switches to small 2-day
-    windows once the first posts are found (to stay under the 100-post cap).
+    over years before the subreddit existed), then switches to weekly windows
+    once data appears. When a weekly window hits the API cap, the fetch is
+    recursively split (see `fetch_window_complete`) so dense periods like the
+    2021 WallStreetSilver squeeze are fully captured.
 
     Empty windows at the start are fine — subreddit may not exist yet.
     Empty windows AFTER data has been found raise an error (likely an API gap).
@@ -132,7 +167,7 @@ def fetch_full_history(subreddit: str, start: str, end: str,
     from datetime import datetime, timedelta
 
     PRESCAN_DAYS = 90   # large window while subreddit not yet active — skips fast
-    ACTIVE_DAYS  = 7    # weekly window once posts exist
+    ACTIVE_DAYS  = 7    # weekly window once posts exist (split further if cap hit)
 
     start_dt  = datetime.fromisoformat(start)
     end_dt    = datetime.fromisoformat(end)
@@ -145,16 +180,23 @@ def fetch_full_history(subreddit: str, start: str, end: str,
         next_dt = min(current + timedelta(days=step), end_dt)
         print(f"  {subreddit}: {current.date()} -> {next_dt.date()}")
 
-        window_df = fetch_pushshift_posts(
-            subreddit,
-            int(current.timestamp()),
-            int(next_dt.timestamp()),
-            size=100,
-        )
-
-        # Warn if small active-phase window still hits 100 — means we're missing posts
-        if seen_data and len(window_df) == 100:
-            print(f"    WARNING: hit 100-post cap — some posts may be missing")
+        if seen_data:
+            # Active phase — use recursive splitting so we never truncate at the cap
+            window_df = fetch_window_complete(
+                subreddit,
+                int(current.timestamp()),
+                int(next_dt.timestamp()),
+                size=100,
+            )
+        else:
+            # Prescan phase — single call, cap not a concern (no posts yet)
+            window_df = fetch_pushshift_posts(
+                subreddit,
+                int(current.timestamp()),
+                int(next_dt.timestamp()),
+                size=100,
+            )
+            _time.sleep(1)
 
         if window_df.empty:
             if seen_data:
@@ -171,9 +213,17 @@ def fetch_full_history(subreddit: str, start: str, end: str,
             frames.append(window_df)
 
         current = next_dt
-        _time.sleep(1)
 
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat(frames, ignore_index=True)
+    # Recursive splits may produce duplicates at window boundaries — dedupe by post id.
+    if "id" in out.columns:
+        before = len(out)
+        out = out.drop_duplicates(subset="id", keep="first").reset_index(drop=True)
+        if before != len(out):
+            print(f"  Dedup: {before} -> {len(out)} rows")
+    return out
 
 
 # ── 3. MAIN ───────────────────────────────────────────────────────────────────
@@ -194,13 +244,14 @@ def main():
     # WallStreetSilver was created in Jan 2021 — start from 2020-01-01 so the
     # prescan phase only burns ~4 windows before finding the first posts.
     # Silverbugs dates back to ~2012 so 2015-01-01 is fine.
+    from config import END_DATE
     SUB_STARTS = {
         "WallStreetSilver": "2020-01-01",
         "Silverbugs":       "2015-01-01",
     }
     hist_frames = []
     for sub, sub_start in SUB_STARTS.items():
-        df = fetch_full_history(sub, start=sub_start, end="2024-12-31")
+        df = fetch_full_history(sub, start=sub_start, end=END_DATE)
         hist_frames.append(df)
 
     if hist_frames:

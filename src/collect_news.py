@@ -175,7 +175,8 @@ def main():
     else:
         existing = pd.DataFrame()
         fetch_from = "2015-01-01"
-    fetch_to = datetime.now().strftime('%Y-%m-%d')
+    from config import END_DATE
+    fetch_to = END_DATE
     print(f"Fetching GDELT news ({fetch_from} -> {fetch_to})...")
     gdelt_df = fetch_gdelt_full(SILVER_KEYWORDS, fetch_from, fetch_to, window_days=7)
     if not gdelt_df.empty:

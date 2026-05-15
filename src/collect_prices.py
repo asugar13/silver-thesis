@@ -22,9 +22,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 
-# Date range for the entire study — 10 years of data
-START = "2015-01-01"
-END   = "2024-12-31"
+from config import START_DATE as START, END_DATE as END  # single source of truth
 
 # Always save relative to this script's location, regardless of where you run it from
 RAW_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
