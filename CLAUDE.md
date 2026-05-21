@@ -1,7 +1,9 @@
 # CLAUDE.md — Project methodology reference
 
 Master's thesis: **weekly silver price forecasting** with classical, tree-based, and
-deep-learning models, with sentiment and technical-indicator ablations.
+deep-learning models, with sentiment and technical-indicator ablations. A parallel
+**volatility-forecasting** chapter (`notebooks/volatility/`) targets weekly realised
+volatility instead of returns — see §9.
 
 `README.md` predates the current notebook layout — **trust this file over the README**
 for what's actually wired up.
@@ -23,7 +25,9 @@ thesis/
 │       ├── daily_sentiment.csv       # FinBERT (news) + Twitter-RoBERTa (Reddit)
 │       ├── metrics_<model>_weekly.csv
 │       ├── period_<model>_weekly.csv
-│       └── lstm_<variant>_weekly_*.pt  # PyTorch checkpoints
+│       ├── lstm_<variant>_weekly_*.pt  # PyTorch checkpoints
+│       ├── volatility_weekly.csv     # shared volatility feature frame (see §9)
+│       └── {metrics,period,pred}_<model>_volatility.csv  # volatility outputs (see §9)
 ├── notebooks/
 │   ├── 01_eda.ipynb
 │   ├── 02_features.ipynb
@@ -31,10 +35,12 @@ thesis/
 │   ├── 03_sentiment.ipynb            # FinBERT + Twitter-RoBERTa scoring
 │   ├── evaluation.ipynb              # cross-model comparison + DM tests
 │   ├── daily/   01–06                # daily counterparts (less curated)
-│   └── weekly/  01_arima 02_var 03_midas 04_random_forest 05_xgboost 06_lstm 06b_lstm_walkforward
+│   ├── weekly/  01_arima 02_var 03_midas 04_random_forest 05_xgboost 06_lstm 06b_lstm_walkforward
+│   └── volatility/  00_features 01_har 02_garch 03_random_forest 04_xgboost evaluation
 └── src/
     ├── collect_*.py                  # data collection scripts
-    └── eval_utils.py                 # shared evaluate / period_metrics / diebold_mariano
+    ├── eval_utils.py                 # shared evaluate / period_metrics / diebold_mariano
+    └── vol_utils.py                  # volatility helpers — vol_evaluate / vol_period_metrics / dca
 ```
 
 `notebooks/cqf/gold_classification.ipynb` is a **separate** CQF exam submission, not
@@ -217,3 +223,91 @@ files via a `period_map` dict. **If you rename or add a model's output CSV, upda
   their CSV outputs are fresh — note this when making changes.
 - LSTM runs on Apple MPS by default; falls back to CUDA / CPU. Reproducibility seed
   is set globally (`SEED=42`) but MPS introduces some non-determinism vs CPU.
+
+---
+
+## 9. Volatility forecasting (`notebooks/volatility/`)
+
+A parallel chapter that asks whether **volatility** is more forecastable than
+**direction**. Same `train/val/test.csv` and W-FRI calendar as the return notebooks,
+but the target is **weekly realised volatility**, not the log-return:
+
+$$\text{RV}_t = \sqrt{\sum_{i \in \text{week } t} r_i^2}$$
+
+— daily squared returns summed per W-FRI week, then square-rooted (realised *variance*
+is additive across days, volatility is not, so we sum then sqrt).
+
+### Layout — features notebook + one notebook per model
+
+| Notebook | Contents |
+|---|---|
+| `00_features.ipynb` | Load daily data, weekly RV aggregation, EDA (ACF), build HAR + EXOG features, split → `volatility_weekly.csv` |
+| `01_har.ipynb` | Naïve floor + HAR-RV (Corsi 2009) |
+| `02_garch.ipynb` | GARCH(1,1), walk-forward refit |
+| `03_random_forest.ipynb` | RF on HAR + EXOG + MDI importance |
+| `04_xgboost.ipynb` | XGBoost on HAR + EXOG + gain importance |
+| `evaluation.ipynb` | Cross-model table, per-year breakdown, 2026 zoom, DM tests |
+
+Unlike the return notebooks (which each re-aggregate `train/val/test.csv`), every
+volatility model notebook loads the single `volatility_weekly.csv` built by
+`00_features.ipynb` — so the RV target, feature definitions and the train/val/test
+`split` column are guaranteed identical across models. Run order: `00_features` →
+`01`–`04` (any order) → `evaluation`.
+
+### Feature sets
+
+- **HAR** — three trailing averages of past RV (Corsi 2009): `rv_w_lag1` (1w),
+  `rv_m_lag1` (4w mean), `rv_q_lag1` (12w mean). All `.shift(1)`-ed — no look-ahead.
+- **EXOG** — 1-week lags of the six cross-asset RVs `[gold, copper, usd, sp500, vix,
+  oil]`. Used by the tree models only; HAR-RV and GARCH stay univariate.
+- `volatility_weekly.csv` also carries `silver_ret` (weekly log-return, used by GARCH)
+  and a `split` column (`train` / `val` / `test`).
+
+### Metrics — `src/vol_utils.py`
+
+DA/WDA do not apply (RV ≥ 0), so volatility has its own helpers:
+
+```python
+vol_evaluate(name, actual, pred, prev_actual)                # RMSE / MAE / R² / DCA dict
+vol_period_metrics(actual, pred, prev_actual, idx, PERIODS)  # per-year RMSE + DCA
+dca(actual, pred, prev_actual)                               # direction-of-change accuracy
+vol_diebold_mariano(actual, p1, p2, n1, n2, loss='qlike')    # DM test, loss-selectable
+```
+
+`PERIODS` is reused straight from `eval_utils`. **DCA** = Direction-of-Change Accuracy
+on $\Delta\log\text{RV}$ — did the model call vol rising vs falling. The Naïve model
+has DCA ≈ 0 by construction (predicting $\text{RV}_{t-1}$ implies no change).
+
+`vol_diebold_mariano` **replaces** `eval_utils.diebold_mariano` for this chapter. RV is
+heavy-tailed enough that squared-error DM is near-powerless — a handful of extreme
+weeks dominate the loss differential and inflate its variance, so a real RMSE
+improvement can still fail an MSE-DM test. The loss is therefore selectable and
+defaults to **QLIKE**, the proxy-robust volatility loss (Patton 2011). `evaluation.ipynb`
+reports QLIKE-DM as the primary test and squared-error DM only as a reference.
+
+### Output file naming
+
+```
+volatility_weekly.csv                    # shared feature frame (00_features)
+metrics_<model>_volatility.csv           # har / garch / rf / xgb headline metrics
+period_<model>_volatility.csv            # per-year RMSE + DCA breakdown
+pred_<model>_volatility.csv              # test-set predictions, consumed by evaluation
+metrics_volatility_summary.csv           # evaluation.ipynb cross-model table
+period_volatility_summary.csv            # evaluation.ipynb stacked per-year table
+dm_volatility_summary.csv                # evaluation.ipynb QLIKE + MSE DM stats
+```
+
+The top-level `notebooks/evaluation.ipynb` (returns) does **not** read these — the
+volatility chapter has its own `evaluation.ipynb` inside `notebooks/volatility/`.
+
+### Differences from the return notebooks (all justified)
+
+| Aspect | Return notebooks | Volatility notebooks |
+|---|---|---|
+| Target | weekly log-return | weekly realised volatility (RV ≥ 0) |
+| Primary metric | WDA | RMSE (DCA as the directional read) |
+| Feature source | each notebook re-aggregates the splits | one shared `volatility_weekly.csv` |
+| Variant ladder | EXOG/Tech/Sentiment rungs | none — single feature set per model |
+| Walk-forward windows | expanding + rolling-100w | GARCH refits walk-forward; HAR/RF/XGB single-fit |
+| DM baseline | smallest variant w/ base regressors | Naïve ($\text{RV}_{t-1}$) |
+| DM loss function | squared error | QLIKE primary (squared error kept as reference) |
