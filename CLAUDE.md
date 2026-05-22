@@ -241,12 +241,12 @@ is additive across days, volatility is not, so we sum then sqrt).
 
 | Notebook | Contents |
 |---|---|
-| `00_features.ipynb` | Load daily data, weekly RV aggregation, EDA (ACF), build HAR + EXOG features, split → `volatility_weekly.csv` |
-| `01_har.ipynb` | Naïve floor + HAR-RV (Corsi 2009) |
+| `00_features.ipynb` | Load daily data, weekly RV aggregation, EDA (ACF), build HAR + EXOG + Reddit-sentiment features, split → `volatility_weekly.csv` |
+| `01_har.ipynb` | Naïve floor + HAR-RV (Corsi 2009) + sentiment ablation |
 | `02_garch.ipynb` | GARCH(1,1), walk-forward refit |
-| `03_random_forest.ipynb` | RF on HAR + EXOG + MDI importance |
-| `04_xgboost.ipynb` | XGBoost on HAR + EXOG + gain importance |
-| `evaluation.ipynb` | Cross-model table, per-year breakdown, 2026 zoom, DM tests |
+| `03_random_forest.ipynb` | RF on HAR + EXOG + MDI importance + sentiment ablation |
+| `04_xgboost.ipynb` | XGBoost on HAR + EXOG + gain importance + sentiment ablation |
+| `evaluation.ipynb` | Cross-model table, per-year breakdown, 2026 zoom, DM tests, sentiment-ablation summary |
 
 Unlike the return notebooks (which each re-aggregate `train/val/test.csv`), every
 volatility model notebook loads the single `volatility_weekly.csv` built by
@@ -260,6 +260,12 @@ volatility model notebook loads the single `volatility_weekly.csv` built by
   `rv_m_lag1` (4w mean), `rv_q_lag1` (12w mean). All `.shift(1)`-ed — no look-ahead.
 - **EXOG** — 1-week lags of the six cross-asset RVs `[gold, copper, usd, sp500, vix,
   oil]`. Used by the tree models only; HAR-RV and GARCH stay univariate.
+- **SENTIMENT** — three 1-week-lagged weekly Reddit features: `reddit_attention_lag1`
+  (log post volume — an *attention* proxy), `reddit_sent_abs_lag1` (|weekly-mean tone|)
+  and `reddit_sent_disp_lag1` (within-week tone dispersion — *intensity* proxies). Used
+  only by the sentiment ablations in `01`/`03`/`04`. **Reddit only** — GDELT news
+  coverage starts late 2017 and has zero-article weeks even inside the test window, too
+  sparse for a clean RV regressor; recorded as a documented data limitation.
 - `volatility_weekly.csv` also carries `silver_ret` (weekly log-return, used by GARCH)
   and a `split` column (`train` / `val` / `test`).
 
@@ -285,6 +291,26 @@ improvement can still fail an MSE-DM test. The loss is therefore selectable and
 defaults to **QLIKE**, the proxy-robust volatility loss (Patton 2011). `evaluation.ipynb`
 reports QLIKE-DM as the primary test and squared-error DM only as a reference.
 
+### Sentiment ablation (`01` §4, `03` / `04` §5)
+
+A focused study — separate from the headline cross-model comparison — of whether public
+**Reddit sentiment** improves the RV forecast. Two mechanism groups, kept apart so any
+effect is attributable: **Attention** (`reddit_attention_lag1`) and **Sentiment
+intensity** (`reddit_sent_abs_lag1`, `reddit_sent_disp_lag1`).
+
+- `01_har` runs a 5-rung OLS ladder: `HAR`, `HAR+Attention`, `HAR+SentIntensity`,
+  `HAR+Attention+SentIntensity`, `HAR+VIX`. `HAR+VIX` is a **control** — HAR is
+  univariate, so sentiment must beat `HAR+VIX` (not just bare `HAR`) to count as a
+  genuine signal rather than a market-vol proxy.
+- `03` / `04` add one `HAR+EXOG+Sentiment` rung; their baselines already contain VIX
+  via EXOG, so the control is built in.
+- Every rung is fitted and scored on the **same sample** (weeks where Reddit features
+  exist — only the 2 boundary weeks drop, leaving 174 of 175 test weeks); the
+  no-sentiment baseline is re-scored on that sample so the QLIKE-DM test is
+  apples-to-apples.
+- The headline models never see the sentiment columns, so the cross-model comparison
+  (§1–§4 of `evaluation.ipynb`) is unaffected — the ablation is purely additive.
+
 ### Output file naming
 
 ```
@@ -292,9 +318,11 @@ volatility_weekly.csv                    # shared feature frame (00_features)
 metrics_<model>_volatility.csv           # har / garch / rf / xgb headline metrics
 period_<model>_volatility.csv            # per-year RMSE + DCA breakdown
 pred_<model>_volatility.csv              # test-set predictions, consumed by evaluation
+metrics_<model>_sentiment_volatility.csv # har/rf/xgb sentiment-ablation rungs + QLIKE-DM
 metrics_volatility_summary.csv           # evaluation.ipynb cross-model table
 period_volatility_summary.csv            # evaluation.ipynb stacked per-year table
 dm_volatility_summary.csv                # evaluation.ipynb QLIKE + MSE DM stats
+metrics_sentiment_volatility_summary.csv # evaluation.ipynb stacked sentiment-ablation table
 ```
 
 The top-level `notebooks/evaluation.ipynb` (returns) does **not** read these — the
@@ -307,7 +335,36 @@ volatility chapter has its own `evaluation.ipynb` inside `notebooks/volatility/`
 | Target | weekly log-return | weekly realised volatility (RV ≥ 0) |
 | Primary metric | WDA | RMSE (DCA as the directional read) |
 | Feature source | each notebook re-aggregates the splits | one shared `volatility_weekly.csv` |
-| Variant ladder | EXOG/Tech/Sentiment rungs | none — single feature set per model |
+| Variant ladder | EXOG/Tech/Sentiment rungs | none for the headline models; a Reddit-sentiment ablation on HAR/RF/XGB |
 | Walk-forward windows | expanding + rolling-100w | GARCH refits walk-forward; HAR/RF/XGB single-fit |
 | DM baseline | smallest variant w/ base regressors | Naïve ($\text{RV}_{t-1}$) |
 | DM loss function | squared error | QLIKE primary (squared error kept as reference) |
+
+---
+
+## 10. Thesis framing — market efficiency
+
+The two chapters test **two nested forms** of the Efficient Market Hypothesis, and the
+distinction should be made explicit in the writeup rather than lumping everything under
+"weak form":
+
+- **Weak form** — prices reflect all past *price/return* information. Tested by the
+  own-history models: ARIMA, VAR own-lag terms, the `silver_lag1/2/3` terms in the tree
+  models, `LSTM-Y`. Finding: weekly silver returns are statistically indistinguishable
+  from white noise — no own-history model beats the naïve $y_{t-1}$ baseline on WDA.
+- **Semi-strong form** — prices reflect all *public* information. Tested by the
+  exogenous rungs: EXOG cross-asset lags, MIDAS monthly macro, and the Reddit / News
+  sentiment ablations. Finding: no public-information variant delivers a significant
+  DM improvement over its base. These null results are **semi-strong-form evidence** —
+  a strictly stronger claim than weak-form efficiency alone.
+
+**Predictable volatility does not contradict the EMH.** The hypothesis constrains the
+conditional *mean* of returns (and risk-adjusted expected returns), not the conditional
+*variance*. Volatility clustering is not a tradable arbitrage the way mean
+predictability would be, so the volatility chapter's positive results (HAR / GARCH
+beating the naïve RV floor) coexist with the efficiency findings without tension.
+
+The thesis is therefore **one coherent story**, not "returns failed, volatility is a
+consolation prize": *weekly silver returns are unforecastable from past prices and
+public information — weak- and semi-strong-form efficiency hold — yet the conditional
+variance is strongly predictable.*
