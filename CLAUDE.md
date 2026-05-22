@@ -344,9 +344,9 @@ volatility chapter has its own `evaluation.ipynb` inside `notebooks/volatility/`
 
 ## 10. Thesis framing — market efficiency
 
-The two chapters test **two nested forms** of the Efficient Market Hypothesis, and the
-distinction should be made explicit in the writeup rather than lumping everything under
-"weak form":
+The two chapters test **two nested forms** of the Efficient Market Hypothesis
+(Fama 1970, 1991), and the distinction should be made explicit in the writeup rather
+than lumping everything under "weak form":
 
 - **Weak form** — prices reflect all past *price/return* information. Tested by the
   own-history models: ARIMA, VAR own-lag terms, the `silver_lag1/2/3` terms in the tree
@@ -362,7 +362,9 @@ distinction should be made explicit in the writeup rather than lumping everythin
 conditional *mean* of returns (and risk-adjusted expected returns), not the conditional
 *variance*. Volatility clustering is not a tradable arbitrage the way mean
 predictability would be, so the volatility chapter's positive results (HAR / GARCH
-beating the naïve RV floor) coexist with the efficiency findings without tension.
+beating the naïve RV floor) coexist with the efficiency findings without tension. The
+framing also aligns with the adaptive-markets view of Lo (2004), which explicitly
+accommodates time-varying second moments alongside (locally) efficient first moments.
 
 The thesis is therefore **one coherent story**, not "returns failed, volatility is a
 consolation prize": *weekly silver returns are unforecastable from past prices and
