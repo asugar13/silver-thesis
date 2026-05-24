@@ -296,18 +296,19 @@ reports QLIKE-DM as the primary test and squared-error DM only as a reference.
 A focused study — separate from the headline cross-model comparison — of what an
 extended HAR-RV gains from (a) **cross-asset volatility spillover** or (b) **public
 Reddit sentiment**. Three mechanism groups, kept apart so any effect is attributable:
-**Cross-asset** (the EXOG set: 6 cross-asset RV lags, with VIX as a single-asset
-sub-control), **Attention** (`reddit_attention_lag1`) and **Sentiment intensity**
-(`reddit_sent_abs_lag1`, `reddit_sent_disp_lag1`).
+**Cross-asset** (the full EXOG set: 6 cross-asset RV lags), **Attention**
+(`reddit_attention_lag1`) and **Sentiment intensity** (`reddit_sent_abs_lag1`,
+`reddit_sent_disp_lag1`).
 
-- `02_har`'s HAR-X ablation runs a 6-rung OLS ladder against bare HAR: `HAR+VIX`
-  (single-asset spillover control), `HAR+EXOG` (full linear spillover — the **linear
-  sibling** of the RF/XGB models in `03`/`04`), `HAR+Attention`, `HAR+SentIntensity`,
-  `HAR+Attention+SentIntensity`. The combined sentiment rung is additionally DM-tested
-  against `HAR+EXOG` (the strongest non-sentiment baseline), so any sentiment effect
-  must survive the full linear cross-asset control, not just bare HAR.
-- `03` / `04` add one `HAR+EXOG+Sentiment` rung; their baselines already contain VIX
-  and all six EXOG lags.
+- `02_har`'s HAR-X ablation runs a 5-rung OLS ladder against bare HAR: `HAR+EXOG`
+  (full linear spillover — the **linear sibling** of the RF/XGB models in `03`/`04`),
+  `HAR+Attention`, `HAR+SentIntensity`, `HAR+Attention+SentIntensity`. Every rung is
+  DM-tested against bare HAR. (An earlier version also tested the combined sentiment
+  rung against `HAR+EXOG`, but `HAR+EXOG` turned out to be significantly *worse* than
+  bare HAR on this sample, so that comparison is a lower bar than vs HAR and has been
+  dropped.)
+- `03` / `04` add one `HAR+EXOG+Sentiment` rung; their baselines already contain all
+  six EXOG lags.
 - Every rung is fitted and scored on the **same sample** (weeks where Reddit features
   exist — only the 2 boundary weeks drop, leaving 174 of 175 test weeks); the
   no-sentiment baseline is re-scored on that sample so the QLIKE-DM test is
