@@ -124,3 +124,37 @@ def vol_diebold_mariano(actual, pred1, pred2, name1='Model 1', name2='Model 2', 
     print(f'{name1:<28} vs {name2:<12}  [{loss:5s}]  DM={dm_stat:+.3f}  '
           f'p={p_val:.3f}  {sig:4s}  -> winner: {winner}')
     return dict(model=name1, vs=name2, loss=loss, dm=dm_stat, p=p_val, winner=winner)
+
+
+def walk_forward(frame, test_index, features, fit_fn, refit_every=1):
+    """Walk-forward refit + predict over a test horizon (expanding window).
+
+    At each refit step (every `refit_every` test rows), call ``fit_fn(X, y)`` on
+    every row in ``frame`` whose index is strictly less than the current test
+    date; the returned model is then used to predict every test row up to the
+    next refit. This is the standard expanding-window setup used for HAR/GARCH
+    in the volatility-forecasting literature and matches the returns chapter's
+    ``walk_forward()`` in ``notebooks/weekly/04_random_forest.ipynb``.
+
+    Parameters
+    ----------
+    frame      : pd.DataFrame sorted by date, with the feature columns and a
+                 ``target`` column. Must span train + val + test.
+    test_index : pd.Index of test dates (subset of ``frame.index``).
+    features   : list of feature column names.
+    fit_fn     : callable ``(X_train, y_train) -> fitted model`` exposing
+                 ``.predict(X) -> array``.
+    refit_every: int, refit cadence in test steps (1 = refit every week).
+
+    Returns
+    -------
+    np.ndarray of predictions, aligned with ``test_index``.
+    """
+    preds = np.zeros(len(test_index))
+    model = None
+    for i, t in enumerate(test_index):
+        if i % refit_every == 0:
+            tr = frame.loc[frame.index < t]
+            model = fit_fn(tr[features], tr['target'])
+        preds[i] = float(np.asarray(model.predict(frame.loc[[t]][features]))[0])
+    return preds

@@ -2,6 +2,11 @@
 
 ## Why RF and XGBoost are included
 
+**Short answer:** *they are negative-result robustness checks — without them, the
+chapter's two key claims (linearity is sufficient; cross-asset spillover is null) are
+vulnerable to the objection "maybe a more flexible model would extract the signal
+you're missing."*
+
 Using tree-based / boosted models for realised-volatility forecasting is normal
 practice — Audrino, Sigrist & Ballinari (2020) (already cited for the sentiment
 ablation), Christensen, Siggaard & Veliyev (2023), and Mittnik–Robinzonov–Spindler
@@ -20,20 +25,28 @@ the decomposition is clean:
 | 1 | `HAR` → `HAR+EXOG` (linear, OLS) | linear cross-asset spillover |
 | 2 | `HAR+EXOG` (linear) → `RF/XGB (HAR+EXOG)` | nonlinearity on top of linear spillover |
 
-### Why not RF/XGB on HAR features alone?
+### RF/XGB on HAR features alone
 
-A natural variant would be **RF/XGB on the HAR features only** (silver lags, no EXOG)
-— the direct nonlinear analogue of HAR-OLS. The ML-volatility literature
-(Bucci 2020; Christensen, Siggaard & Veliyev 2023) sometimes includes it as a
-baseline, but consistently finds it loses to OLS-HAR. The reason is structural: the
-three HAR features are overlapping moving averages of the same series, highly
-collinear and approximately linearly related to next-week RV by construction (Corsi
-2009), so trees overfit and lose the linear structure HAR exploits.
+The literature (Bucci 2020; Christensen, Siggaard & Veliyev 2023) typically finds
+that **trees on HAR features alone lose to OLS-HAR** — the three HAR lags are
+overlapping moving averages, highly collinear and approximately linearly related to
+next-week RV by construction (Corsi 2009), so trees overfit and lose the linear
+structure HAR exploits.
 
-ML-on-RV only earns its keep once the feature set contains something OLS cannot
-exploit linearly — asymmetric / jump components (HAR-J / HARQ; Corsi & Renò 2012,
-Patton & Sheppard 2015) or cross-asset RVs, as in `03`/`04`. So the `RF (HAR-only)`
-rung is skipped; the decomposition above already isolates what the trees contribute.
+For weekly silver RV under walk-forward, the data shows a different pattern. The
+`RF (HAR)` rung in `03_random_forest` §6 is *competitive* with HAR-OLS on RMSE
+(0.03177 vs 0.03205), and `XGB (HAR+Attention)` actually has the lowest RMSE of any
+model in the chapter (0.03148). The gaps are small enough that no QLIKE-DM test
+rejects equality, but the trees aren't strictly worse on HAR-only features the way
+the cross-vol literature suggests. The ablations confirm this: each tree class's
+best configuration is on bare HAR features (or HAR + a single sentiment regressor),
+*not* HAR+EXOG.
+
+ML-on-RV would likely earn more of its keep once the feature set contains something
+OLS cannot exploit linearly — asymmetric / jump components (HAR-J / HARQ; Corsi &
+Renò 2012, Patton & Sheppard 2015) — but those features require intraday data we
+don't have. Without that richer feature set, the trees in this chapter function as
+robustness checks rather than as superior forecasters.
 
 ## Why QLIKE, not MSE
 
@@ -89,27 +102,37 @@ Why this matters for the chapter:
 
 ## Results
 
-QLIKE-DM (Patton 2011), Newey-West (1987) lag-1 variance:
+All four models now refit walk-forward (HAR refits weekly via OLS, RF and XGB refit
+every 4 weeks with frozen hyperparameters on an expanding window, GARCH was already
+walk-forward), so the cross-model DM tests below are no longer confounded by a
+single-fit / walk-forward asymmetry. QLIKE-DM (Patton 2011), Newey-West (1987) lag-1
+variance:
 
 | Comparison | QLIKE-DM | Verdict |
 |---|---|---|
-| HAR-RV vs Naïve | **−2.820, p=0.005 ** | HAR beats the floor |
-| GARCH(1,1) vs Naïve | **−2.594, p=0.009 ** | GARCH beats the floor |
-| `HAR+EXOG` (linear) vs HAR | **+2.333, p=0.020 *** | linear spillover **hurts** |
-| RF (HAR+EXOG) vs Naïve | −1.309, p=0.190 (ns) | borderline |
-| XGB (HAR+EXOG) vs Naïve | −0.006, p=0.995 (ns) | ties the floor |
+| HAR-RV vs Naïve | **−2.902, p=0.004 \*\*** | HAR significantly beats the floor |
+| GARCH(1,1) vs Naïve | **−2.594, p=0.009 \*\*** | GARCH significantly beats the floor |
+| **RF (HAR+EXOG) vs Naïve** | **−2.370, p=0.018 \*** | **RF now significantly beats the floor** (was ns at p=0.19 under single-fit) |
+| XGB (HAR+EXOG) vs Naïve | −1.466, p=0.143 (ns) | XGB ties the floor (improved from p=0.99 under single-fit) |
+| `HAR+EXOG` (linear) vs HAR (`02_har` §5) | **+2.130, p=0.033 \*** | linear spillover **hurts** |
 
 The story this tells:
 
-1. **Bare HAR beats Naïve cleanly.** The chapter's headline claim holds.
-2. **Linear cross-asset spillover hurts.** Six noisy cross-asset RV lags overfit
-   OLS on ~400 weeks: `HAR+EXOG` (linear) is significantly *worse* than bare HAR
-   under QLIKE.
-3. **Nonlinearity partly rescues the trees.** RF and XGBoost on the same HAR+EXOG
-   feature set don't reach HAR's significance level against Naïve, but they don't
-   fall as far as the linear OLS-HAR+EXOG did — depth/leaf regularisation mitigates
-   the overfitting that wrecked the linear version.
-4. **The combined finding is a defensible negative result.** Cross-asset RV
+1. **Bare HAR beats Naïve cleanly** (DM=−2.90, p=0.004 \*\*) — the chapter's
+   headline claim holds and tightens slightly under walk-forward.
+2. **Walk-forward rescues RF** from borderline to significant against Naïve
+   (DM=−1.31, p=0.19 single-fit → DM=−2.37, p=0.018 \* walk-forward). The trees
+   now see the 2026-spike regime in their training data rather than being frozen
+   at end-2022; XGB benefits too in RMSE (−7.2%) but remains ns against Naïve.
+3. **Linear cross-asset spillover still hurts.** `HAR+EXOG` (linear, OLS) is
+   significantly worse than bare HAR even with weekly refit — six noisy regressors
+   overfit OLS regardless of refit cadence (DM=+2.13, p=0.033 \*).
+4. **Cross-asset spillover is null across all model classes.** RF and XGB ablations
+   in `03_random_forest` §6 / `04_xgboost` §6 confirm bare-HAR-feature
+   configurations are competitive or *better* than HAR+EXOG within each tree class
+   (RF (HAR) RMSE 0.03177 vs RF (HAR+EXOG) 0.03370). So the EXOG null result is
+   structural, not a linear-OLS artifact.
+5. **The combined finding is a defensible negative result.** Cross-asset RV
    spillovers — linear or nonlinear — do not improve on bare HAR for weekly silver
    RV. That mirrors the returns chapter's null findings on cross-asset signals.
 
@@ -132,12 +155,33 @@ individually; only the *aggregate* balances out. The Feb-2021 silver-squeeze wee
 the textbook example — high attention coincided with mixed bullish-vs-skeptic coverage
 and a near-zero weekly mean tone.
 
-The modelling consequence: the sentiment block has roughly **one** degree of freedom of
-real variation, not three. `HAR+Attention` alone matches `HAR+SentIntensity` alone on
-QLIKE-DM (DM ≈ −2.83 / −2.86, both p ≈ 0.005 **); stacking them in
-`HAR+Attention+SentIntensity` adds estimation noise without information, which is why
-the combined rung loses significance (DM = −1.83, p = 0.067) even though each rung
-alone clears p < 0.005. `HAR+Attention` is the parsimonious single-regressor winner.
+(Note: `sent_disp` is included in the EDA correlation analysis above but has been
+*dropped* from the modelling ablation per its near-zero lead-lag correlation with the
+target — see `00_features` §2.5. The model now uses `attention` and `sent_abs` only;
+the three-feature correlation structure remains the right way to explain the
+parsimony argument below.)
+
+The modelling consequence (walk-forward HAR-X in `02_har` §5):
+
+| Rung | RMSE | QLIKE-DM vs HAR | p |
+|---|---|---|---|
+| HAR | 0.03205 | — | — |
+| HAR+Attention | 0.03191 | −2.61 | **0.009 \*\*** |
+| HAR+SentIntensity (sent_abs) | 0.03194 | **−3.40** | **0.0007 \*\*\*** |
+| HAR+Attention+SentIntensity | 0.03190 | −3.06 | **0.0022 \*\*** |
+
+All three sentiment rungs significantly improve HAR under walk-forward. (Under
+static single-fit, the combined rung was borderline at p=0.067 because the redundant
+coefficients added per-week prediction noise; walk-forward refits adapt the
+coefficients to current data and the combined rung crosses comfortably into
+significance.) The RMSE differences across rungs are at the third decimal — all three
+capture essentially the same latent "Reddit engagement level" signal via different
+combinations of the correlated regressors.
+
+`HAR+Attention` remains the cleanest *parsimonious* choice: one regressor, the most
+interpretable channel ("how much is Reddit talking about silver this week?"), and
+gives QLIKE-DM within ~0.5 of the more complex combined rung. The chapter recommends
+`HAR+Attention` as the single best parsimonious extension of HAR-RV.
 
 **Caveat — "strong sentiment lowers vol" is a confound, not a structural relationship.**
 The marginal correlation between `sent_abs` and `silver_rv(t)` is negative (≈ −0.15
