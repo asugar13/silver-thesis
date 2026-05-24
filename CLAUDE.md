@@ -36,7 +36,7 @@ thesis/
 │   ├── evaluation.ipynb              # cross-model comparison + DM tests
 │   ├── daily/   01–06                # daily counterparts (less curated)
 │   ├── weekly/  01_arima 02_var 03_midas 04_random_forest 05_xgboost 06_lstm 06b_lstm_walkforward
-│   └── volatility/  00_features 01_har 02_garch 03_random_forest 04_xgboost evaluation
+│   └── volatility/  00_features 01_garch 02_har 03_random_forest 04_xgboost evaluation
 └── src/
     ├── collect_*.py                  # data collection scripts
     ├── eval_utils.py                 # shared evaluate / period_metrics / diebold_mariano
@@ -242,8 +242,8 @@ is additive across days, volatility is not, so we sum then sqrt).
 | Notebook | Contents |
 |---|---|
 | `00_features.ipynb` | Load daily data, weekly RV aggregation, EDA (ACF), build HAR + EXOG + Reddit-sentiment features, split → `volatility_weekly.csv` |
-| `01_har.ipynb` | Naïve floor + HAR-RV (Corsi 2009) + sentiment ablation |
-| `02_garch.ipynb` | GARCH(1,1), walk-forward refit |
+| `01_garch.ipynb` | GARCH(1,1), walk-forward refit |
+| `02_har.ipynb` | Naïve floor + HAR-RV (Corsi 2009) + HAR-X sentiment / cross-asset ablation |
 | `03_random_forest.ipynb` | RF on HAR + EXOG + MDI importance + sentiment ablation |
 | `04_xgboost.ipynb` | XGBoost on HAR + EXOG + gain importance + sentiment ablation |
 | `evaluation.ipynb` | Cross-model table, per-year breakdown, 2026 zoom, DM tests, sentiment-ablation summary |
@@ -291,7 +291,7 @@ improvement can still fail an MSE-DM test. The loss is therefore selectable and
 defaults to **QLIKE**, the proxy-robust volatility loss (Patton 2011). `evaluation.ipynb`
 reports QLIKE-DM as the primary test and squared-error DM only as a reference.
 
-### HAR-X / sentiment ablation (`01_har`, `03` / `04`)
+### HAR-X / sentiment ablation (`02_har`, `03` / `04`)
 
 A focused study — separate from the headline cross-model comparison — of what an
 extended HAR-RV gains from (a) **cross-asset volatility spillover** or (b) **public
@@ -300,7 +300,7 @@ Reddit sentiment**. Three mechanism groups, kept apart so any effect is attribut
 sub-control), **Attention** (`reddit_attention_lag1`) and **Sentiment intensity**
 (`reddit_sent_abs_lag1`, `reddit_sent_disp_lag1`).
 
-- `01_har`'s HAR-X ablation runs a 6-rung OLS ladder against bare HAR: `HAR+VIX`
+- `02_har`'s HAR-X ablation runs a 6-rung OLS ladder against bare HAR: `HAR+VIX`
   (single-asset spillover control), `HAR+EXOG` (full linear spillover — the **linear
   sibling** of the RF/XGB models in `03`/`04`), `HAR+Attention`, `HAR+SentIntensity`,
   `HAR+Attention+SentIntensity`. The combined sentiment rung is additionally DM-tested

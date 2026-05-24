@@ -12,7 +12,7 @@ doesn't pay back on a small, AR-dominated, heavy-tailed target.
 So the trees aren't methodologically wrong, but their job in this chapter is **not
 to win** — it's to test whether EXOG cross-asset RV spillovers add anything HAR can't
 see, and whether **nonlinearity** on top of any linear spillover adds anything more.
-With the `HAR+EXOG` (linear) rung now in `01_har` §5 alongside the trees in `03`/`04`,
+With the `HAR+EXOG` (linear) rung now in `02_har` §5 alongside the trees in `03`/`04`,
 the decomposition is clean:
 
 | Step | Compare | What it isolates |
@@ -37,12 +37,41 @@ rung is skipped; the decomposition above already isolates what the trees contrib
 
 ## Why QLIKE, not MSE
 
-- **MSE** is symmetric — treats `+ε` and `−ε` identically. Over- and under-prediction
-  of the same size get the same squared penalty.
-- **QLIKE** is asymmetric — penalises **underestimation of variance more than
-  overestimation**. Forecasting too-low vol when realised vol comes in high is punished
-  harder (linear growth in $\sigma^2 / h$) than the reverse (only logarithmic growth in
-  $h / \sigma^2$).
+Let $\sigma^2 = RV^2$ be the realised variance and $h = \hat{RV}^2$ the forecast
+variance. The two losses used in this chapter are, as implemented in
+[`src/vol_utils.py`](../../src/vol_utils.py):
+
+**MSE** — squared error on volatility:
+
+$$L_{\text{MSE}}(RV, \hat{RV}) = \big(RV - \hat{RV}\big)^2$$
+
+Symmetric in the signed error $RV - \hat{RV}$: an over-forecast and an under-forecast
+of equal magnitude carry the same penalty.
+
+**QLIKE** — Patton (2011), on variance:
+
+$$L_{\text{QLIKE}}(\sigma^2, h) = \frac{\sigma^2}{h} - \log\frac{\sigma^2}{h} - 1$$
+
+A function of the **ratio** $r = \sigma^2 / h$ alone, minimised at $r = 1$. As
+$r \to \infty$ (severe under-forecast, $h \ll \sigma^2$), $L$ grows **linearly** in
+$r$; as $r \to 0$ (severe over-forecast, $h \gg \sigma^2$), $L$ grows only
+**logarithmically** in $1/r$. So QLIKE penalises **underestimation of variance more
+than overestimation** — the asymmetry risk management cares about.
+
+Numerically, with $\sigma^2 = 1$:
+
+| Forecast $h$ | Ratio $r = \sigma^2/h$ | $L_{\text{QLIKE}}$ | $L_{\text{MSE}}$ on $\sigma$ |
+|---|---|---|---|
+| $h = 0.5$ (under-forecast by ×2) | $2.0$ | **$0.307$** | $0.086$ |
+| $h = 1.0$ (perfect)             | $1.0$ | $0$           | $0$ |
+| $h = 2.0$ (over-forecast by ×2)  | $0.5$ | $0.193$       | $0.172$ |
+
+Under-forecasting variance by a factor of 2 costs **≈ 60 % more QLIKE loss** than
+over-forecasting by the same factor. MSE on volatility runs the *opposite* way in
+this example (0.172 vs 0.086): because ×2 on the variance scale is a larger absolute
+change in vol-scale than ÷2, MSE penalises the over-forecast more — exactly the
+wrong asymmetry for risk management, where under-forecasting vol (under-sized VaR /
+hedges) is the costlier real-world error.
 
 Why this matters for the chapter:
 
@@ -127,7 +156,7 @@ The volatility chapter has two distinct headline answers:
 - **Yes, weekly silver RV is forecastable** — HAR and GARCH both significantly beat
   the Naïve $\text{RV}_{t-1}$ floor under QLIKE.
 - **No, cross-asset RVs don't add anything** — not linearly, not nonlinearly. The
-  only public-information addition that helps is Reddit sentiment (§5 of `01_har`),
+  only public-information addition that helps is Reddit sentiment (§5 of `02_har`),
   and the effect is small.
 
 These line up with the framing in `CLAUDE.md` §10: predictable conditional variance

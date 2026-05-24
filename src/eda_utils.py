@@ -9,15 +9,20 @@ from scipy.stats import shapiro, normaltest, anderson, kstest
 import statsmodels.api as sm
 
 
-def eda_transform(series, transform: str = None, lags: int = 40):
+def eda_transform(series, transform: str = None, lags: int = 40,
+                  is_variance: bool = False):
     """
     EDA on a pandas Series with optional transform.
 
     Parameters
     ----------
-    series    : pd.Series
-    transform : {'log', 'square', 'delta', None}
-    lags      : int — ACF/PACF lags
+    series      : pd.Series
+    transform   : {'log', 'square', 'delta', None}
+    lags        : int — ACF/PACF lags
+    is_variance : bool — set True when `series` is already a variance / squared-return
+                  proxy (e.g. weekly realised volatility). Suppresses the ARCH-LM and
+                  Ljung-Box-on-squared-residuals tests, which are circular on a series
+                  that is by construction a measure of variance.
     """
     median_days = series.index.to_series().diff().dt.days.median()
     if median_days is not None and median_days >= 5:
@@ -128,21 +133,28 @@ def eda_transform(series, transform: str = None, lags: int = 40):
           f"  → {'normal' if ks_p > 0.05 else 'NOT normal'}")
 
     # ── 9. ARCH / volatility clustering ───────────────────────────────────────
-    model = sm.tsa.ARIMA(ts, order=(0, 0, 0)).fit()
-    resid = model.resid.dropna()
+    # Skipped when the input already IS a variance / squared-return proxy:
+    # testing for ARCH effects on a variance series is circular.
+    if is_variance:
+        lb_sq = None
+        print("\nARCH-LM / Ljung-Box on squared residuals: skipped "
+              "(is_variance=True — input already measures variance).")
+    else:
+        model = sm.tsa.ARIMA(ts, order=(0, 0, 0)).fit()
+        resid = model.resid.dropna()
 
-    lm_stat, lm_p, f_stat, f_p = het_arch(resid, nlags=12)
-    print(f"\nARCH LM test (nlags=12):  stat={lm_stat:.2f}, p={lm_p:.4f}")
-    print("  →", "ARCH effects present — consider GARCH" if lm_p < 0.05
-          else "No significant ARCH effects")
+        lm_stat, lm_p, f_stat, f_p = het_arch(resid, nlags=12)
+        print(f"\nARCH LM test (nlags=12):  stat={lm_stat:.2f}, p={lm_p:.4f}")
+        print("  →", "ARCH effects present — consider GARCH" if lm_p < 0.05
+              else "No significant ARCH effects")
 
-    x = ts - ts.mean()
-    lm_stat2, lm_p2, _, _ = het_arch(x.dropna(), nlags=lags)
-    lb_sq = acorr_ljungbox(x.dropna() ** 2, lags=lb_lags, return_df=True)
-    print("Ljung-Box on squared residuals:")
-    for lag, row in lb_sq.iterrows():
-        pval = row['lb_pvalue']
-        print(f"  lag={lag}: p-value = {pval:.4f}  → {'ARCH effects likely' if pval < 0.05 else 'No autocorrelation in variance'}")
+        x = ts - ts.mean()
+        lm_stat2, lm_p2, _, _ = het_arch(x.dropna(), nlags=lags)
+        lb_sq = acorr_ljungbox(x.dropna() ** 2, lags=lb_lags, return_df=True)
+        print("Ljung-Box on squared residuals:")
+        for lag, row in lb_sq.iterrows():
+            pval = row['lb_pvalue']
+            print(f"  lag={lag}: p-value = {pval:.4f}  → {'ARCH effects likely' if pval < 0.05 else 'No autocorrelation in variance'}")
 
     return {
         'transformed_series': ts,
