@@ -35,6 +35,29 @@ exploit linearly — asymmetric / jump components (HAR-J / HARQ; Corsi & Renò 2
 Patton & Sheppard 2015) or cross-asset RVs, as in `03`/`04`. So the `RF (HAR-only)`
 rung is skipped; the decomposition above already isolates what the trees contribute.
 
+## Why QLIKE, not MSE
+
+- **MSE** is symmetric — treats `+ε` and `−ε` identically. Over- and under-prediction
+  of the same size get the same squared penalty.
+- **QLIKE** is asymmetric — penalises **underestimation of variance more than
+  overestimation**. Forecasting too-low vol when realised vol comes in high is punished
+  harder (linear growth in $\sigma^2 / h$) than the reverse (only logarithmic growth in
+  $h / \sigma^2$).
+
+Why this matters for the chapter:
+
+- **Risk-management alignment.** Underestimating vol is the costlier real-world error
+  (undersized VaR, insufficient hedging), so QLIKE's asymmetry matches the use-case
+  loss better than MSE.
+- **Statistical power.** The log-ratio form down-weights extreme upper-tail weeks that
+  dominate squared error on a heavy-tailed target (excess kurtosis ≈ +58 for weekly
+  silver RV — see `00_features` §2.2). This is why every "tie" under MSE-DM in
+  `evaluation.ipynb` §4 is paired with a meaningful QLIKE-DM verdict.
+- **Consistency.** Patton (2011) shows QLIKE is one of the small set of loss functions
+  whose ranking of forecasts is *consistent* with the ranking under the true latent
+  variance when the proxy is noisy — non-consistent losses (e.g. MAE on volatility,
+  MSE on volatility) risk ranking forecasts contrary to the truth.
+
 ## Results
 
 QLIKE-DM (Patton 2011), Newey-West (1987) lag-1 variance:
@@ -60,6 +83,42 @@ The story this tells:
 4. **The combined finding is a defensible negative result.** Cross-asset RV
    spillovers — linear or nonlinear — do not improve on bare HAR for weekly silver
    RV. That mirrors the returns chapter's null findings on cross-asset signals.
+
+## Why HAR+Attention is the parsimonious sentiment rung
+
+The three sentiment features behave as **three views of the same latent "Reddit
+engagement level"**, not three independent signals:
+
+| Pair | r |
+|---|---|
+| attention ↔ sent_abs (magnitude of weekly mean tone) | **−0.61** |
+| attention ↔ sent_disp (within-week tone std) | **−0.51** |
+| sent_abs ↔ sent_disp | +0.31 |
+
+The negative attention↔intensity correlations are a **law-of-large-numbers effect**,
+not a behavioural one: in high-attention weeks many posters with mixed views average to
+a near-zero net tone (`sent_abs` falls), and each day's mean is itself a smoother
+estimate so day-to-day swings shrink (`sent_disp` falls). Posts stay opinionated
+individually; only the *aggregate* balances out. The Feb-2021 silver-squeeze week is
+the textbook example — high attention coincided with mixed bullish-vs-skeptic coverage
+and a near-zero weekly mean tone.
+
+The modelling consequence: the sentiment block has roughly **one** degree of freedom of
+real variation, not three. `HAR+Attention` alone matches `HAR+SentIntensity` alone on
+QLIKE-DM (DM ≈ −2.83 / −2.86, both p ≈ 0.005 **); stacking them in
+`HAR+Attention+SentIntensity` adds estimation noise without information, which is why
+the combined rung loses significance (DM = −1.83, p = 0.067) even though each rung
+alone clears p < 0.005. `HAR+Attention` is the parsimonious single-regressor winner.
+
+**Caveat — "strong sentiment lowers vol" is a confound, not a structural relationship.**
+The marginal correlation between `sent_abs` and `silver_rv(t)` is negative (≈ −0.15
+contemporaneous, ≈ −0.15 lagged) but it is **fully mediated by attention**: the OLS
+coefficient on `sent_abs` collapses from −0.0082 (HAR+SentIntensity, *t* = −0.84) to
+−0.0004 (HAR+Att+Int with attention also in the model, *t* = −0.03) — about 5% of its
+standalone value, statistically indistinguishable from zero. Mechanism: high `sent_abs`
+weeks are mechanically low-attention weeks (the LLN effect above), and low-attention
+weeks are low-vol weeks (less retail trading). So strong sentiment intensity does not
+"calm" the market — it just marks weeks where the market is less engaged.
 
 ## Where this sits in the thesis story
 
