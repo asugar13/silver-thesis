@@ -291,25 +291,32 @@ improvement can still fail an MSE-DM test. The loss is therefore selectable and
 defaults to **QLIKE**, the proxy-robust volatility loss (Patton 2011). `evaluation.ipynb`
 reports QLIKE-DM as the primary test and squared-error DM only as a reference.
 
-### Sentiment ablation (`01` §4, `03` / `04` §5)
+### HAR-X / sentiment ablation (`01_har`, `03` / `04`)
 
-A focused study — separate from the headline cross-model comparison — of whether public
-**Reddit sentiment** improves the RV forecast. Two mechanism groups, kept apart so any
-effect is attributable: **Attention** (`reddit_attention_lag1`) and **Sentiment
-intensity** (`reddit_sent_abs_lag1`, `reddit_sent_disp_lag1`).
+A focused study — separate from the headline cross-model comparison — of what an
+extended HAR-RV gains from (a) **cross-asset volatility spillover** or (b) **public
+Reddit sentiment**. Three mechanism groups, kept apart so any effect is attributable:
+**Cross-asset** (the EXOG set: 6 cross-asset RV lags, with VIX as a single-asset
+sub-control), **Attention** (`reddit_attention_lag1`) and **Sentiment intensity**
+(`reddit_sent_abs_lag1`, `reddit_sent_disp_lag1`).
 
-- `01_har` runs a 5-rung OLS ladder: `HAR`, `HAR+Attention`, `HAR+SentIntensity`,
-  `HAR+Attention+SentIntensity`, `HAR+VIX`. `HAR+VIX` is a **control** — HAR is
-  univariate, so sentiment must beat `HAR+VIX` (not just bare `HAR`) to count as a
-  genuine signal rather than a market-vol proxy.
+- `01_har`'s HAR-X ablation runs a 6-rung OLS ladder against bare HAR: `HAR+VIX`
+  (single-asset spillover control), `HAR+EXOG` (full linear spillover — the **linear
+  sibling** of the RF/XGB models in `03`/`04`), `HAR+Attention`, `HAR+SentIntensity`,
+  `HAR+Attention+SentIntensity`. The combined sentiment rung is additionally DM-tested
+  against `HAR+EXOG` (the strongest non-sentiment baseline), so any sentiment effect
+  must survive the full linear cross-asset control, not just bare HAR.
 - `03` / `04` add one `HAR+EXOG+Sentiment` rung; their baselines already contain VIX
-  via EXOG, so the control is built in.
+  and all six EXOG lags.
 - Every rung is fitted and scored on the **same sample** (weeks where Reddit features
   exist — only the 2 boundary weeks drop, leaving 174 of 175 test weeks); the
   no-sentiment baseline is re-scored on that sample so the QLIKE-DM test is
   apples-to-apples.
 - The headline models never see the sentiment columns, so the cross-model comparison
   (§1–§4 of `evaluation.ipynb`) is unaffected — the ablation is purely additive.
+- Reading the `HAR+EXOG` row against `RF/XGB (HAR+EXOG)` in `03`/`04` cleanly isolates
+  the nonlinear gain (or loss) of the trees on top of the linear cross-asset story —
+  if both lose to HAR, the feature set is dry rather than the model class limiting.
 
 ### Output file naming
 
