@@ -97,7 +97,9 @@ def vol_diebold_mariano(actual, pred1, pred2, name1='Model 1', name2='Model 2', 
     loss='mse'   -- squared error (matches `eval_utils.diebold_mariano`).
     loss='mae'   -- absolute error.
 
-    Negative DM stat = pred1 has lower loss (is more accurate).
+    Negative DM stat = pred1 has lower loss (is more accurate). The winner (name1 /
+    name2 / 'tie' at the 0.05 level) is printed in the result line and also returned
+    in the result dict under the `winner` key.
     """
     actual = np.asarray(actual, dtype=float)
     pred1  = np.asarray(pred1, dtype=float)
@@ -115,5 +117,10 @@ def vol_diebold_mariano(actual, pred1, pred2, name1='Model 1', name2='Model 2', 
     dm_stat = float(np.mean(d) / np.sqrt(var_d))
     p_val   = 2 * (1 - scipy_stats.norm.cdf(abs(dm_stat)))
     sig     = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else '(ns)'
-    print(f'{name1:<12} vs {name2:<12}  [{loss:5s}]  DM={dm_stat:+.3f}  p={p_val:.3f}  {sig}')
-    return dict(model=name1, vs=name2, loss=loss, dm=dm_stat, p=p_val)
+    if p_val < 0.05:
+        winner = name1 if dm_stat < 0 else name2
+    else:
+        winner = 'tie'
+    print(f'{name1:<28} vs {name2:<12}  [{loss:5s}]  DM={dm_stat:+.3f}  '
+          f'p={p_val:.3f}  {sig:4s}  -> winner: {winner}')
+    return dict(model=name1, vs=name2, loss=loss, dm=dm_stat, p=p_val, winner=winner)
