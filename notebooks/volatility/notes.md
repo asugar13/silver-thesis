@@ -193,6 +193,54 @@ weeks are mechanically low-attention weeks (the LLN effect above), and low-atten
 weeks are low-vol weeks (less retail trading). So strong sentiment intensity does not
 "calm" the market — it just marks weeks where the market is less engaged.
 
+### Effect size is small; statistical evidence is not
+
+The sentiment effect this chapter documents is **small in magnitude but statistically
+robust**. Worth separating these two clearly when writing it up so the result isn't
+misread as either weaker or stronger than the evidence supports:
+
+- **Effect size — small.** β ≈ 0.0009 on `reddit_attention_lag1`; per-week forecast
+  adjustment ≈ ±0.008 on a target with median ~0.03; RMSE improves by ~0.4% relative
+  (0.03205 → 0.03191); in-sample R² essentially unchanged (+0.003). The sentiment
+  signal does not *transform* silver-vol forecasting.
+- **Statistical evidence — strong.** QLIKE-DM p-values of 0.001 (`SentIntensity`),
+  0.002 (combined), 0.009 (`Attention`) — none borderline. Robust to walk-forward vs
+  single-fit, to `sent_disp` inclusion/exclusion, to the `HAR+VIX` market-stress
+  control, and consistent in direction across attention / intensity / combined.
+
+The magnitude pattern is consistent with the broader news-and-volatility literature.
+Audrino, Sigrist & Ballinari (2020) — the closest published precedent — explicitly
+characterise their sentiment-vol effect as "real but modest"; Tetlock (2007) on
+media-sentiment-and-returns reports similar magnitudes. A *big* sentiment-vol effect
+in this literature would be implausible — silver-RV is overwhelmingly driven by its
+own recent history (HAR-OLS R² ≈ 0.29 from price features alone). The ~0.4% RMSE gain
+from sentiment is what's left to squeeze out.
+
+**Suggested thesis-writeup framing:** *"Reddit attention is a small but statistically
+robust predictor of weekly silver RV (DM-QLIKE p ≤ 0.009 across the ablation rungs in
+`02_har` §5; effect size β ≈ 0.0009), consistent with the modest sentiment-vol
+effects reported in the broader news-volatility literature (Audrino et al. 2020)."*
+
+The thesis is *stronger* leaning into this framing than trying to dress up a 0.4%
+RMSE improvement as a major finding. "Small" doesn't mean "weak" when you say so
+explicitly and the statistical evidence is solid; reviewers penalise overclaim, not
+calibrated modesty.
+
+**The same signal properties explain why the trees don't benefit from sentiment.**
+Each empirical observation in this chapter maps to one of the signal's three
+structural properties:
+
+| Observation | Caused by |
+|---|---|
+| In-sample t-stats NS | **Small** — β too small to clear the t-test on ~400 obs |
+| DM-QLIKE significant | **Persistent** — small directional adjustment aggregates over 174 test weeks |
+| OLS extracts it cleanly | **Small + linear** — OLS has no flexibility to overfit a tiny linear signal |
+| Trees (RF/XGB) fail to extract it | **Small + linear** — trees' per-week prediction noise drowns small linear effects |
+
+The trees-don't-help-sentiment finding isn't a separate puzzle to defend — it's a
+direct consequence of the *same* signal structure. Three properties (small, linear,
+persistent), four observations, one underlying fact about the sentiment effect.
+
 ## Where this sits in the thesis story
 
 The volatility chapter has two distinct headline answers:
@@ -229,3 +277,5 @@ semi-strong-form evidence on the public-information side.
 - Patton, A. J., & Sheppard, K. (2015). Good volatility, bad volatility: Signed
   jumps and the persistence of volatility. *Review of Economics and Statistics*,
   97(3), 683–697.
+- Tetlock, P. C. (2007). Giving content to investor sentiment: The role of media in
+  the stock market. *Journal of Finance*, 62(3), 1139–1168.
