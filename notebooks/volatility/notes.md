@@ -241,6 +241,26 @@ The trees-don't-help-sentiment finding isn't a separate puzzle to defend — it'
 direct consequence of the *same* signal structure. Three properties (small, linear,
 persistent), four observations, one underlying fact about the sentiment effect.
 
+### Permutation importance confirms the trees-don't-use-sentiment claim
+
+`03_random_forest` §7 and `04_xgboost` §7 plot in-sample MDI / gain importance
+side-by-side with out-of-sample **permutation importance** (Breiman 2001) for the
+combined sentiment rung. The contrast is the most direct evidence in the chapter
+that the trees split on sentiment in-sample without using it for OOS prediction:
+
+| Model | Sentiment in-sample (MDI / gain) | Sentiment OOS (permutation) |
+|---|---|---|
+| RF | `reddit_attention_lag1` rank-5, 9.0% of total MDI | ≈ 0 (essentially no OOS contribution) |
+| XGB | `reddit_attention_lag1` rank-4, 9.8% of total gain | ≈ 0 to slightly negative |
+
+Only the three HAR features have *meaningfully positive* OOS permutation importance
+for either tree model; every EXOG feature *and* both sentiment features are at zero
+or slightly negative OOS importance. The trees do find places to split on sentiment
+during training (which is what MDI / gain measure), but those splits don't generalise
+to the test set (which is what permutation importance measures). For trees on a
+small linear signal, those are different things — and the permutation-importance
+plot is what makes that visible.
+
 ## Where this sits in the thesis story
 
 The volatility chapter has two distinct headline answers:
@@ -279,3 +299,7 @@ semi-strong-form evidence on the public-information side.
   97(3), 683–697.
 - Tetlock, P. C. (2007). Giving content to investor sentiment: The role of media in
   the stock market. *Journal of Finance*, 62(3), 1139–1168.
+- Breiman, L. (2001). Random forests. *Machine Learning*, 45(1), 5–32.
+- Strobl, C., Boulesteix, A.-L., Zeileis, A., & Hothorn, T. (2007). Bias in random
+  forest variable importance measures: Illustrations, sources and a solution. *BMC
+  Bioinformatics*, 8(1), 25.
