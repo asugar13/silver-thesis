@@ -50,7 +50,10 @@ def period_metrics(actual_arr, pred_arr, index, periods):
 
 
 def diebold_mariano(actual, pred1, pred2, name1='Model 1', name2='Model 2'):
-    """DM test, squared error loss, Newey-West variance (lag=1). Negative stat = pred1 better."""
+    """DM test, squared error loss, Newey-West variance (lag=1). Negative stat = pred1 better.
+
+    Prints the formatted result + winner inline (matches `vol_utils.vol_diebold_mariano`)
+    and returns a dict with keys (model, vs, dm, p, winner)."""
     mask = ~np.isnan(pred1) & ~np.isnan(pred2) & ~np.isnan(actual)
     actual, pred1, pred2 = actual[mask], pred1[mask], pred2[mask]
     e1 = (actual - pred1) ** 2
@@ -63,11 +66,14 @@ def diebold_mariano(actual, pred1, pred2, name1='Model 1', name2='Model 2'):
     var_d  = (gamma0 + 2 * gamma1) / n
     if var_d <= 0:
         print(f'{name1} vs {name2}: variance non-positive, skipping')
-        return
+        return None
     dm_stat = d_bar / np.sqrt(var_d)
     p_val   = 2 * (1 - scipy_stats.norm.cdf(abs(dm_stat)))
     sig     = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else '(ns)'
-    better  = name1 if dm_stat < 0 else name2
-    print(f'{name1:<40} vs {name2:<40}  DM={dm_stat:+.3f}  p={p_val:.3f}  {sig}')
     if p_val < 0.05:
-        print(f'  -> {better} is significantly more accurate')
+        winner = name1 if dm_stat < 0 else name2
+    else:
+        winner = 'tie'
+    print(f'{name1:<40} vs {name2:<40}  DM={dm_stat:+.3f}  '
+          f'p={p_val:.3f}  {sig:4s}  -> winner: {winner}')
+    return dict(model=name1, vs=name2, dm=dm_stat, p=p_val, winner=winner)
