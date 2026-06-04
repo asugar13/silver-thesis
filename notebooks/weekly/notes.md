@@ -117,3 +117,31 @@ The same `train/val/test.csv` split is used everywhere, but val isn't held out t
 - **LSTM (`06` / `06b`)** — val is a genuine held-out set, used for early stopping (no clean likelihood → AIC unavailable; train loss is useless as a stopping signal) and the SEQ_LEN × HIDDEN × DROPOUT mini-grid.
 
 So val exists in the project because LSTM needs it; the other notebooks inherit the split for cross-model test-set alignment.
+
+## Why the MIDAS notebooks hand-roll the fit (and don't use `midasr`)
+
+`03_midas` and `03b_midas_daily` are R notebooks that `library(midasr)` but **never call it** —
+git confirms its API (`midas_r()`, `mls()`, `amweights`, …) appears in **zero commits, ever**; the
+import has been vestigial since the first R MIDAS notebook. The estimation is hand-rolled base R:
+`optim(L-BFGS-B)` over the Beta / exp-Almon shape params, with the linear coefficients profiled out
+by closed-form OLS (`solve`).
+
+Why hand-rolling is the right call here — i.e. why `midasr` would fight the design:
+
+- **`mls(x, k, m)` assumes a fixed, regular high-freq-per-low-freq ratio `m`.** Neither block has
+  that: monthly macro enters by real-time *publication availability* (each Friday takes the
+  most-recent values observable by $F_{t-1}$, with per-series release delays), and the daily block
+  (03b) uses the last K *trading* days, with holiday-variable week lengths. A custom lag-matrix
+  builder is needed regardless, so `mls()` adds nothing.
+- **The fit is "concentrated."** Given the shape params $\theta$, the linear coefficients are
+  closed-form OLS, so only $\theta$ enters the optimizer — simpler and more stable than `midas_r()`'s
+  full joint NLS, especially across the ~44 walk-forward refits (no formula to rebuild each window).
+- **Multi-frequency with per-series weights** (03b: 6 daily + 4 monthly, each its own 2-param curve)
+  is trivially "a list of lag matrices, weight each" in the custom engine; in `midasr` it's a
+  multi-term `mls()` formula.
+
+Upshot: the `library(midasr)` line is dead weight (it forces the package to be installed for
+nothing), and "R/`midasr`" overstates the dependency — it's hand-rolled MIDAS in R. R buys nothing
+here *unless* you adopt `midasr` properly (real `mls`/`midas_r` + analytical inference), which the
+first two points make awkward for this real-time-availability, walk-forward design. Otherwise a
+Python port (reusing `eval_utils`) consolidates the chapter to one language/env.
