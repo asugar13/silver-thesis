@@ -84,27 +84,26 @@
 \begin{abstract}
 \noindent
 % DRAFT abstract — qualitative, to be finalised once all results tables are frozen.
-This thesis asks how much of silver's short-term price behaviour can actually be
-forecast, and frames the question through the efficient-market hypothesis. Silver is
-modelled at the weekly (Friday-to-Friday) horizon over 2015--2026, and the analysis is
-factorised into the two moments the hypothesis treats differently: the conditional
-\emph{mean} of returns, which efficiency constrains, and the conditional
-\emph{variance}, which it does not. For the mean, a deliberate ladder of models of
-increasing flexibility---ARIMA/ARIMAX, VAR, mixed-data-sampling (MIDAS) regressions,
-random forests, gradient boosting, and an LSTM---is tested against a common
-random-walk-with-drift benchmark, expanding the information set from silver's own past
-(weak form) to a broad set of public information (semi-strong form): cross-asset
-returns, futures positioning, macroeconomic releases, technical indicators, and
-sentiment from Reddit and financial news. For the variance, GARCH and the
-heterogeneous autoregressive (HAR) model are compared against the same tree ensembles
-on weekly realised volatility. The central finding is a single coherent statement
-rather than two opposed ones: no model beats the drift benchmark for the conditional
-mean by a significant margin---weak- and semi-strong-form efficiency hold for weekly
-silver returns---yet the conditional variance is strongly and significantly
-forecastable, with retail attention adding a small but robust increment. Predictable
-volatility alongside an unpredictable mean is exactly what the efficient-market
-hypothesis permits, so the two halves of the thesis describe the same result from two
-angles.
+This thesis asks how much of silver's short-term price behaviour can be forecast, and
+frames the question through the efficient-market hypothesis (EMH). Silver is modelled at
+the weekly (Friday-to-Friday) horizon over 2015--2026, and the analysis is factorised
+into the two moments: the conditional \emph{mean} of returns and the conditional
+\emph{variance}---efficiency constrains the former but not the latter. For the mean, a
+deliberate ladder of models of increasing flexibility---ARIMA/ARIMAX, VAR,
+mixed-data-sampling (MIDAS) regressions, random forests, gradient boosting, and an
+LSTM---is tested against a common random-walk-with-drift benchmark, expanding the
+information set from silver's own past (weak-form EMH) to a broad set of public
+information (semi-strong-form EMH): cross-asset returns, silver futures positioning,
+macroeconomic releases, technical indicators, and sentiment from Reddit and financial
+news. For the variance, weekly realised volatility is modelled with GARCH and the
+heterogeneous autoregressive (HAR) model, and the question of interest is whether
+sentiment improves the forecast. The central finding is a single coherent statement: no
+model beats the drift benchmark for the conditional mean by a significant
+margin---weak- and semi-strong-form efficiency hold for weekly silver returns---yet the
+conditional variance is strongly and significantly forecastable, with sentiment adding a
+small but robust increment. Predictable volatility alongside an unpredictable mean is
+exactly what the EMH permits, so the two results are complementary rather than
+contradictory.
 \end{abstract}
 
 \newpage
