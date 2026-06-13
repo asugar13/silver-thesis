@@ -146,13 +146,24 @@ natural hypotheses to take to the data, and they are the two this thesis tests.
 
 Empirically, silver's \emph{price} behaves like a random walk with drift: it is
 non-stationary, and shocks accumulate rather than mean-revert
-(Figure~\ref{fig:silver-price}). The object worth modelling is therefore not
-the price level but its increment, the weekly log-return
-\(r_t = \log P_t - \log P_{t-1}\). Differencing the non-stationary level into this
-increment is what makes the forecasting problem well-posed: \(r_t\) is stationary---it
-fluctuates around a stable long-run mean rather than wandering without bound---so there
-is a fixed quantity to predict and a natural yardstick, that same prevailing average, to
-judge any forecast against.
+(Figure~\ref{fig:silver-price}). Returns, however, are stationary---they fluctuate around
+a stable long-run mean rather than wandering without bound. The object worth modelling is
+therefore not the price level but its increment, the weekly log-return
+\(r_t = \log P_t - \log P_{t-1}\); stationarity is what makes the forecasting problem
+well-posed, giving a fixed quantity to predict and a natural yardstick---that same
+prevailing average---to judge any forecast against.
+
+% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the whole paragraph)
+{\color{red}
+The weekly (Friday-to-Friday) horizon is a deliberate choice of frequency, made where the
+information aligns. Futures-market positioning is reported weekly and macroeconomic
+releases monthly, while daily sentiment is too sparse and noisy to inform a forecast and
+daily returns are dominated by microstructure noise; a weekly horizon is coarse enough to
+average out that noise yet fine enough to leave roughly six hundred observations over
+2015--2026---enough to train and properly out-of-sample-test the machine-learning models.
+Weekly realised volatility, the target of the second-moment analysis, is in turn
+aggregated from daily returns.
+}
 
 \begin{figure}[htbp]
     \centering
@@ -166,7 +177,7 @@ judge any forecast against.
     level itself.}
     \label{fig:silver-price}
 \end{figure} The efficiency question then becomes whether \(r_t\)
-can be forecast---and silver's own past offers surprisingly little to go on. Weekly
+can be forecast---and silver's own past offers little to go on. Weekly
 returns carry almost no linear autocorrelation, so a linear own-history model such as
 ARIMA has little to grip; a formal model search duly collapses it to a constant mean. Yet
 the returns are not independent noise either, because their \emph{magnitude} is
