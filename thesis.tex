@@ -213,39 +213,12 @@ ensembles (random forests and gradient boosting) to a recurrent neural network (
 for the conditional variance it runs GARCH and the heterogeneous autoregressive (HAR)
 model of \textcite{corsi2009} alongside the same tree ensembles. Forecasts are compared
 on out-of-sample \(R^2\) relative to the drift \parencite{campbell2008}, the
-Diebold--Mariano test of equal predictive accuracy \parencite{diebold1995}, and---for
-the directional reading---the Pesaran--Timmermann test \parencite{pesaran1992}, all on a
+Diebold--Mariano test of equal predictive accuracy \parencite{diebold1995}, and the
+Pesaran--Timmermann test of directional accuracy \parencite{pesaran1992}, all on a
 held-out 2023--2026 test window.
 
-\textbf{Findings in brief.} The results tell one coherent story. No model---linear or
-nonlinear, own-history or public-information---beats the drift benchmark for the
-conditional mean by a statistically significant margin; feature-rich and
-shorter-window variants do significantly worse. Weak- and semi-strong-form efficiency
-hold for weekly silver returns, and they hold more cleanly once the exceptional 2025
-bull run is set aside. The conditional variance is a different matter: HAR and GARCH
-both forecast weekly realised volatility well clear of the naïve benchmark, and Reddit
-attention adds a small but statistically robust increment on top. Crucially, predictable
-volatility does \emph{not} contradict efficiency---it is precisely the
-mean-versus-variance distinction drawn above---so the two halves of the thesis are not a
-success and a failure but two views of the same result: \emph{weekly silver returns are
-unforecastable in the mean from past prices and public information, yet their variance
-is strongly predictable.} A weak, non-replicating directional signal from futures-market
-positioning is the single caveat, and it is best read through the adaptive-markets lens
-of \textcite{lo2004} rather than as evidence against efficiency.
-
-\textbf{Contributions.} The thesis makes four contributions. First, it evaluates a full
-model ladder---classical, machine-learning, and deep-learning---for \emph{both} moments
-of weekly silver returns under one drift benchmark and one significance battery, so that
-model families are compared on a level footing rather than across incommensurable
-setups. Second, it makes the conditional-mean / conditional-variance factorisation
-explicit, turning what could read as ``returns failed, volatility worked'' into a single
-coherent efficiency statement. Third, it builds a domain-appropriate sentiment
-pipeline---Twitter-RoBERTa for Reddit, FinBERT for financial news---and treats sentiment
-as a falsifiable ablation on both moments rather than assuming it helps. Fourth, it
-documents a carefully qualified set of negative results on semi-strong predictability of
-the mean, separating magnitude from direction and showing where an apparent directional
-signal fails to replicate across model classes.
-
+% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the whole paragraph)
+{\color{red}
 \textbf{Structure.} The remainder of the thesis is organised as follows.
 Section~\ref{sec:framework} sets out the conceptual framework---the random-walk view of
 prices, the martingale-difference characterisation of the conditional mean, the
@@ -258,6 +231,7 @@ Section~\ref{sec:mean} reports the conditional-mean (returns) results, and
 Section~\ref{sec:var} the conditional-variance (volatility) results.
 Section~\ref{sec:discussion} discusses the findings against the efficiency framing, and
 Section~\ref{sec:conclusion} concludes with limitations and directions for future work.
+}
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Conceptual Framework}
@@ -297,17 +271,23 @@ not independent and identically distributed, because their variance clusters
 \subsection{The conditional mean and the information set}
 \label{sec:framework-mds}
 
-Let \(F_t\) denote the information available at time \(t\). For the weak-form test this
-is silver's own past, \(F_t = \{r_t, r_{t-1}, r_{t-2}, \dots\}\). Returns are a
-\emph{martingale difference sequence} (MDS) with respect to \(F_t\) if the conditional
-mean equals a constant drift,
+Let \(F_t\) denote the information available at time \(t\). For the weak-form test, this
+is silver's own past, \(F_t = \{r_t, r_{t-1}, r_{t-2}, \dots\}\). Returns satisfy the
+\emph{martingale difference} property with respect to \(F_t\) if their conditional mean is
+constant,
 \begin{equation}
     \E[r_{t+1} \mid F_t] = \mu,
     \label{eq:weak-null}
 \end{equation}
-that is, past returns do not move the expected next-week return away from its long-run
-average. This is a statement about the first moment \emph{only}; it does not assert that
-returns are i.i.d. The semi-strong test expands the information set to public covariates,
+or, equivalently, the demeaned return \(r_{t+1} - \mu\) is a \emph{martingale difference
+sequence} (MDS),
+\begin{equation}
+    \E[r_{t+1} - \mu \mid F_t] = 0.
+    \label{eq:weak-null-mds}
+\end{equation}
+Past returns do not move the expected next-week return away from its long-run average.
+This is a statement about the first moment \emph{only}; it does not assert that returns
+are i.i.d. The semi-strong test expands the information set to public covariates,
 \begin{equation}
     G_t = \{F_t,\ \text{gold},\ \text{USD},\ \text{copper},\ \text{VIX},\ \text{oil},\
     \text{COT},\ \text{macro},\ \text{technicals},\ \text{sentiment}\},
@@ -318,9 +298,9 @@ and asks whether the martingale-difference property survives the larger conditio
     \label{eq:ss-null}
 \end{equation}
 ARIMA tests whether silver returns are a martingale difference with respect to their own
-past, Equation~\eqref{eq:weak-null}; ARIMAX and the machine-learning models test whether
+past, Equation~\eqref{eq:weak-null}; ARIMAX and the other models test whether
 that property survives once the information set is expanded to public covariates,
-Equation~\eqref{eq:ss-null}. Operationally, both nulls are tested as ``does the model
+Equation~\eqref{eq:ss-null}. Operationally, these nulls are tested as ``does the model
 beat the prevailing-mean (drift) benchmark out of sample?''---a forecast that beats the
 drift would contradict the corresponding null.
 
@@ -523,37 +503,246 @@ literature's fault line: attention versus tone, variance versus mean.
 \label{sec:data}
 % ═════════════════════════════════════════════════════════════════════════════
 
-% SKELETON — to be written. Planned subsections:
+All models are estimated on a single weekly dataset spanning January 2015 to May 2026.
+The raw inputs come from seven source families---market prices, daily financial
+indicators, monthly macroeconomic releases, futures-market positioning, Reddit, financial
+news, and Google Trends---each collected at its native frequency and then consolidated
+onto a common Friday-to-Friday (W-FRI) calendar in one shared feature frame
+(Section~\ref{sec:data-frame}). This section describes each source and the features
+derived from it; the model inputs are summarised in Table~\ref{tab:variables}.
+
 \subsection{Price and cross-asset data}
-% Daily silver, gold, USD, copper, S&P 500, VIX, TIPS/real rates, oil; W-FRI weekly
-% aggregation; the silver weekly log-return target.
+
+Daily closing prices for silver and six related assets---gold, the US dollar index,
+copper, the S\&P~500, the VIX, and crude oil---are obtained from Yahoo Finance over
+2015--2026 (2{,}854 trading days). Silver is the front-month futures contract, and its
+weekly log-return \(r_t = \log P_t - \log P_{t-1}\), taken Friday-to-Friday, is the
+forecast target throughout. The six cross-asset series enter as their own weekly
+log-returns---the EXOG set---capturing silver's documented co-movement with the precious
+metals, the dollar, industrial demand, equities, and risk appetite
+\parencite{batten2010,zhang2010}. Silver's own three weekly return lags (the AR block) and
+the gold/silver price ratio, \(z\)-scored on the training period (\texttt{gs\_ratio\_z}),
+complete the price-based features.
+
 \subsection{Macroeconomic and positioning data}
-% FRED monthly macro (CPI, Fed Funds, industrial production, M2) with publication-date
-% availability lagging; COT futures positioning.
+
+Three daily financial indicators are taken from the Federal Reserve's FRED database: the
+ten-year TIPS real yield, the ten-year breakeven inflation rate, and initial jobless
+claims, each entered as its weekly change. Four monthly macroeconomic series---headline
+CPI, the federal funds rate, industrial production, and M2---are likewise from FRED.
+Because a month's figure is not public until weeks after its reference period, the macro
+series are not simply shifted but entered under a point-in-time availability rule: a
+monthly value is visible in week \(d\) only once it would actually have been released, and
+three publication lags of each series are retained (\(\ast\)\texttt{\_mlag1/2/3}).
+Futures-market positioning comes from the CFTC Commitments of Traders report, published
+weekly; we use the managed-money and commercial net positions, each expressed as a share
+of open interest (\texttt{cot\_mm\_net\_pct}, \texttt{cot\_comm\_net\_pct}).
+
 \subsection{Sentiment data}
-% Reddit (r/Silverbugs, r/WallStreetSilver via Arctic Shift) scored with Twitter-RoBERTa;
-% GDELT news scored with FinBERT; weekly aggregation and lagging.
+
+Two text sources are scored for sentiment. Reddit posts from r/WallStreetSilver and
+r/Silverbugs, recovered back to 2015 through the Arctic Shift archive, are scored with a
+RoBERTa model fine-tuned on social-media text \parencite{loureiro2022}; financial-news
+headlines from GDELT are scored with FinBERT, a BERT model adapted to the financial domain
+\parencite{araci2019}. Each document's score is averaged to a daily index and then to a
+weekly mean (\texttt{reddit\_sentiment}, \texttt{news\_sentiment}). News coverage is the
+thinner of the two: GDELT begins only in late 2017 and has zero-article weeks even inside
+the test window, which is why the volatility chapter's sentiment study
+(Section~\ref{sec:var}) relies on Reddit attention and treats the news series as a
+documented data limitation. A separate Google Trends ``silver'' search-interest series is
+also collected as a broad retail-attention proxy for that chapter.
+
 \subsection{Feature frame and train/validation/test split}
-% Shared weekly W-FRI feature frame; feature groups (EXOG, TECH, MACRO, sentiment, COT);
-% chronological split 2015--2021 / 2022 / 2023--2026.
+\label{sec:data-frame}
+
+All sources are consolidated into one shared weekly frame of 591 W-FRI weeks. Aggregation
+from daily to weekly follows fixed rules: returns and FRED changes are summed within the
+week, sentiment is averaged, and levels (\texttt{gs\_ratio\_z}) and COT positioning take
+the week's last value. Every feature enters the frame raw and contemporaneous, with two
+exceptions: the macro block, which is publication-lagged as above, and a set of
+filter-selected best-lag columns used only for one ablation. Each model then applies its
+own one-week lag, so a feature observed at the Friday-\(t{-}1\) close is used to forecast
+the return realised at the Friday-\(t\) close---there is no intra-week look-ahead.
+
+The data are split chronologically, without shuffling and with boundaries on Fridays:
+2015--2021 for training, 2022 for validation (model and hyperparameter selection), and
+2023 to May 2026 as the held-out test window (Table~\ref{tab:split}). The split
+deliberately places the unusual 2024--2026 bull run in the test set, so that out-of-sample
+performance is judged across a genuine regime shift rather than an in-sample echo of it.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Chronological train/validation/test split (W-FRI weeks).}
+    \label{tab:split}
+    \begin{tabular}{llcl}
+        \toprule
+        Split      & Window               & Weeks & Role \\
+        \midrule
+        Train      & 2015-01 -- 2021-12   & 365   & model fitting \\
+        Validation & 2022                 & 52    & model \& hyperparameter selection \\
+        Test       & 2023-01 -- 2026-05   & 174   & held-out evaluation \\
+        \midrule
+        Total      & 2015 -- 2026         & 591   & \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \caption{Variables entering the analysis, by feature group. All features are observed
+    at the Friday-\(t{-}1\) close and lagged one week by each model before use, except the
+    macro block (publication-lagged) and a best-lag ablation set. ``EXOG'' denotes
+    the six cross-asset returns.}
+    \label{tab:variables}
+    \setlength{\tabcolsep}{4.5pt}
+    \begin{tabular}{p{1.9cm} p{4.7cm} l l p{2.8cm}}
+        \toprule
+        Group & Variables & Source & Freq.\ & Entered as \\
+        \midrule
+        Target        & \texttt{silver\_return} & Yahoo Finance & Daily & weekly W-FRI log-return \\
+        AR            & \texttt{silver\_lag1/2/3} & Yahoo Finance & Daily & weekly log-returns, 1--3 wk lags \\
+        Cross-asset (EXOG) & \texttt{gold\_return}, \texttt{copper\_return}, \texttt{usd\_return}, \texttt{sp500\_return}, \texttt{vix\_return}, \texttt{oil\_return} & Yahoo Finance & Daily & weekly log-returns \\
+        Ratio (GS)    & \texttt{gs\_ratio\_z} & Yahoo Finance & Daily & gold/silver ratio, \(z\)-scored on train \\
+        FRED daily    & \texttt{real\_rates\_chg}, \texttt{breakeven\_chg}, \texttt{jobless\_chg} & FRED & Daily/Wk & weekly change \\
+        Positioning (COT) & \texttt{cot\_mm\_net\_pct}, \texttt{cot\_comm\_net\_pct} & CFTC & Weekly & net position / open interest \\
+        Sentiment     & \texttt{reddit\_sentiment}, \texttt{news\_sentiment} & Reddit, GDELT & Daily & weekly mean of RoBERTa / FinBERT scores \\
+        Technical (TECH) & \texttt{macd\_line}, \texttt{macd\_hist}, \texttt{rsi\_14w}, \texttt{mom\_5w}, \texttt{roc\_13/26/52w}, \texttt{price\_ma13w}, \texttt{donchian\_52w}, \texttt{bb\_pct\_b} & Yahoo Finance & Weekly & directional momentum / trend indicators \\
+        Macro (MACRO) & \texttt{cpi}, \texttt{fed\_funds}, \texttt{ind\_prod}, \texttt{m2} & FRED & Monthly & 3 publication-availability lags each \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Methodology}
 \label{sec:method}
 % ═════════════════════════════════════════════════════════════════════════════
 
-% SKELETON — to be written. Planned subsections:
 \subsection{Forecasting target and benchmarks}
-% Weekly log-return target; the drift (prevailing-mean) benchmark = ARIMA(0,0,0);
-% the naïve t-1 reference.
+\label{sec:method-target}
+
+The target for the conditional-mean analysis is the weekly silver log-return \(r_t\) of
+Section~\ref{sec:framework-rw}, forecast one week ahead. Two benchmarks frame every model.
+The first is a \emph{na\"ive} forecast, \(\hat r_{t+1} = r_t\), the persistence of last
+week's return; it is a weak reference for a near-white-noise target and is reported only
+for context. The load-bearing benchmark is the \emph{drift}, the prevailing (expanding)
+mean of past returns,
+\begin{equation}
+    \hat r_{t+1}^{\,\text{drift}} = \frac{1}{t}\sum_{s=1}^{t} r_s,
+    \label{eq:drift}
+\end{equation}
+which is the random-walk-with-drift forecast and is identical to \(\mathrm{ARIMA}(0,0,0)\)
+on an expanding window. It is the correct null for a return target
+\parencite{welch2008,campbell2008}: a model that cannot beat the drift out of sample
+carries no exploitable conditional-mean information, so ``beating the drift'' is the
+operational form of rejecting the efficiency nulls of Equations~\eqref{eq:weak-null}
+and~\eqref{eq:ss-null}.
+
+Models are evaluated by \emph{walk-forward} one-step-ahead forecasting on the held-out
+2023--2026 window (Section~\ref{sec:data-frame}): at each week a model is fit on data
+through \(t\) and predicts \(t+1\), so no future information enters a forecast. Where the
+model permits, two windowing schemes are compared---an \emph{expanding} window that grows
+with the sample, and a \emph{rolling} 100-week window that discards older data to track
+regime change. Re-estimation cadence is model-specific and noted below.
+
 \subsection{Conditional-mean models}
-% ARIMA/ARIMAX, VAR, MIDAS (monthly-macro and multi-frequency), random forest, XGBoost,
-% LSTM (weekly- and daily-input). Walk-forward schemes and the ablation ladder.
+\label{sec:method-mean}
+
+The models form a deliberate ladder of increasing flexibility---from linear own-history,
+through linear public-information, to nonlinear machine learning---every rung judged
+against the same drift floor. Each exogenous predictor enters lagged one week
+(Section~\ref{sec:data-frame}), and the ablation \emph{ladder} adds feature groups
+cumulatively to a six-asset cross-return base (EXOG): the gold/silver ratio, technical
+indicators, monthly macro, daily FRED indicators, COT positioning, and Reddit and news
+sentiment, up to an all-features rung.
+
+\textbf{ARIMA / ARIMAX.} An \(\mathrm{ARIMA}(p,d,q)\) model with order chosen by AIC on the
+training and validation data; the search selects \(\mathrm{ARIMA}(0,0,0)\), so the best
+own-history model coincides with the drift and gives the cleanest weak-form test. ARIMAX
+adds the lagged exogenous groups as regressors and supplies the linear semi-strong test.
+
+\textbf{VAR.} A vector autoregression of silver and the cross-asset returns with lag order
+by AIC, capturing linear feedback among the assets; Granger-causality and impulse-response
+diagnostics are reported descriptively.
+
+\textbf{MIDAS.} Mixed-data-sampling regressions that bring higher-frequency predictors to
+the weekly target through a low-dimensional weight polynomial---the Beta and
+exponential-Almon families \parencite{ghysels2004,ghysels2007}---estimated by nonlinear
+least squares, with the weight family selected on the validation window. Two variants are
+run: monthly macro at three lags, and a multi-frequency model adding the six cross-asset
+returns at twenty daily lags \parencite{andreou2013}.
+
+\textbf{Random forest and gradient boosting.} Nonlinear ensembles that admit thresholds
+and interactions among the lagged features---a random forest \parencite{breiman2001} and
+gradient-boosted trees, XGBoost \parencite{chen2016}. Hyperparameters are grid-searched per
+ablation rung by blocked time-series cross-validation on train-plus-validation, and the
+model is re-fit every four weeks in the walk-forward.
+
+\textbf{LSTM.} A long short-term memory recurrent network \parencite{hochreiter1997} that
+reads a fixed window of recent weeks and learns its own representation of the past; a
+single recurrent layer with dropout and early stopping is used, given the small sample (a
+few hundred training sequences). A weekly-input model and a daily-input variant (a
+sixty-trading-day window) are estimated, the latter testing whether daily-resolution
+information helps forecast the weekly return.
+
+The classical and tree models are run under both windowing schemes; the LSTM uses a single
+expanding-window training pass, since a 100-week rolling window leaves too few sequences to
+train stably.
+
 \subsection{Conditional-variance models}
-% Realised-volatility target; GARCH(1,1); HAR-RV and HAR-X; tree ensembles on HAR+EXOG.
+\label{sec:method-var}
+
+The second-moment analysis replaces the return with weekly \emph{realised volatility}.
+Realised variance is additive across days, so the weekly figure is the square root of the
+summed daily squared returns,
+\begin{equation}
+    \mathrm{RV}_t = \sqrt{\textstyle\sum_{i \in \text{week } t} r_i^2 },
+    \label{eq:rv}
+\end{equation}
+a model-free volatility proxy. Its predictors are the heterogeneous-autoregressive (HAR)
+lags---one-week, monthly (four-week mean), and quarterly (twelve-week mean) trailing
+realised volatility---optionally extended with the six cross-asset realised volatilities,
+Reddit attention and sentiment-intensity measures, and Google Trends search interest; the
+last three form the volatility chapter's sentiment ablation, and Google Trends enters here
+only, not in the conditional-mean models.
+
+\textbf{GARCH.} A GARCH(1,1) model \parencite{engle1982,bollerslev1986}, fit by maximum
+likelihood and re-estimated walk-forward---the parametric benchmark for conditional
+variance.
+
+\textbf{HAR-RV and HAR-X.} The heterogeneous autoregressive model of \textcite{corsi2009},
+an OLS regression of next-week realised volatility on its three trailing averages; HAR-X
+adds the cross-asset, attention, and search predictors as ablation rungs.
+
+\textbf{Tree ensembles.} Random forest and XGBoost on the HAR-plus-cross-asset feature
+set, isolating any nonlinear gain over the linear HAR-X.
+
 \subsection{Evaluation protocol and significance tests}
-% RMSE/MAE, DA/WDA (returns), DCA (volatility); out-of-sample R^2; Diebold--Mariano
-% (squared- and absolute-error / QLIKE); Pesaran--Timmermann; ex-2025 robustness.
+\label{sec:method-eval}
+
+All models are scored on the same 2023--2026 test window. Point-forecast accuracy is
+measured by RMSE and MAE---the primary metrics, since efficiency is a conditional-mean
+(magnitude) claim---complemented by directional accuracy (DA) and its magnitude-weighted
+form (WDA) for the returns, and by direction-of-change accuracy (DCA) for volatility.
+Effect size relative to the drift is summarised by the Campbell--Thompson out-of-sample
+\(R^2\) \parencite{campbell2008}.
+
+Significance rests on three tests. The \textbf{Diebold--Mariano} test of equal predictive
+accuracy \parencite{diebold1995}, with Newey--West variance, compares each model to the
+drift floor; for returns it is reported under squared-error loss (the headline) and
+absolute-error loss (a heavy-tail robustness check), and for volatility under the
+proxy-robust QLIKE loss \parencite{patton2011}, which squared-error DM is too low-powered
+to replace on heavy-tailed realised volatility. The \textbf{Pesaran--Timmermann} test
+\parencite{pesaran1992} is the matching significance test for the directional (DA/WDA)
+reading. Finally, a generalised spectral test \parencite{hong2003} checks the own-history
+return series for nonlinear departures from the martingale-difference null that linear
+autocorrelation cannot detect.
+
+Two robustness layers accompany the headline tests: a breakdown by calendar sub-period
+across 2023--2026, to confirm that performance is not driven by a single regime, and a
+re-run of the full battery with the exceptional 2025 bull run excluded. The load-bearing
+verdict throughout is the Diebold--Mariano test against the drift floor; the directional
+results are a secondary, economically motivated lens.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{The Conditional Mean: Forecasting Weekly Returns}
@@ -614,6 +803,31 @@ literature's fault line: attention versus tone, variance versus mean.
 %
 % Then: limitations (sample length, sentiment coverage, weekly horizon) and future work
 % (intraday data, regime-switching, a VaR capstone tying mean and variance together).
+
+Weekly silver returns are indistinguishable from a martingale difference under magnitude
+loss, satisfying weak- and semi-strong-form efficiency in the economically relevant
+sense; the residual directional dependence is statistically detectable but unexploitable,
+which efficiency theory permits; and its episodic, regime-bound character is consistent
+with---though not proof of---the adaptive-markets view \parencite{lo2004} in which such
+efficiency is the equilibrium outcome rather than the assumption. One story, three layers,
+no tension.
+
+% ─────────────────────────────────────────────────────────────────────────────
+%  Contributions (relocated from the Introduction). Fold into the conclusion prose
+%  when it is written, or keep as a short standalone paragraph.
+% ─────────────────────────────────────────────────────────────────────────────
+\textbf{Contributions.} The thesis makes four contributions. First, it evaluates a full
+model ladder---classical, machine-learning, and deep-learning---for \emph{both} moments
+of weekly silver returns under one drift benchmark and one significance battery, so that
+model families are compared on a level footing rather than across incommensurable
+setups. Second, it makes the conditional-mean / conditional-variance factorisation
+explicit, turning what could read as ``returns failed, volatility worked'' into a single
+coherent efficiency statement. Third, it builds a domain-appropriate sentiment
+pipeline---Twitter-RoBERTa for Reddit, FinBERT for financial news---and treats sentiment
+as a falsifiable ablation on both moments rather than assuming it helps. Fourth, it
+documents a carefully qualified set of negative results on semi-strong predictability of
+the mean, separating magnitude from direction and showing where an apparent directional
+signal fails to replicate across model classes.
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  References
