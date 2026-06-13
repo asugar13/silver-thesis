@@ -118,59 +118,76 @@ contradictory.
 \label{sec:intro}
 % ═════════════════════════════════════════════════════════════════════════════
 
-Silver is one of the few assets that lives a double life. On one side it is an
-industrial input: roughly half of annual demand is consumed in photovoltaics,
-electronics, brazing alloys, and medical applications, which ties its price to the
-global manufacturing cycle. On the other it is a monetary metal, held as a store of
-value, an inflation hedge, and a smaller, more volatile counterpart to gold. Layered on
-top of both is a retail-investor following that, in late January 2021, briefly turned
-silver into a meme trade: coordinated through Reddit's r/WallStreetSilver---a community
-created on 28 January 2021---a wave of retail buying pushed spot from roughly \$25 to
-\$30 an ounce within days before fading. This mixture of industrial demand, monetary
-hedging, and episodic retail attention makes silver an unusually rich laboratory for
-the oldest empirical question in finance: how much of a price can be forecast?
+Silver lives a double life. It is an industrial input---roughly half of annual demand
+goes into photovoltaics, electronics, brazing alloys, and medical uses, tying its price
+to the global manufacturing cycle---and, at the same time, a monetary metal held as a
+store of value, an inflation hedge, and a more volatile cousin of gold. On top of both
+sits a retail following that can sometimes turn silver into a meme trade: in late January
+2021, Reddit's r/WallStreetSilver drove spot from roughly \$25 to \$30 an ounce within
+days before it faded. This blend of industrial demand, monetary hedging, and episodic
+retail attention makes silver an unusually rich laboratory for the oldest question in
+empirical finance: how much of a price can be forecast?
 
 That question has a canonical answer, and it is mostly negative. The efficient-market
-hypothesis \parencite{fama1970,fama1991}, building on \textcite{samuelson1965}'s
-observation that properly anticipated prices fluctuate randomly, holds that prices
-already embed available information, so successive price changes are approximately
-unpredictable. The hypothesis is conventionally stated in nested forms graded by the
-information set: the \emph{weak} form (past prices and returns carry no exploitable
-signal), the \emph{semi-strong} form (no public information does), and the
-\emph{strong} form (not even private information does). For a liquid, globally traded
-metal, weak- and semi-strong-form efficiency are the natural hypotheses to take to the
-data, and they are the two this thesis tests.
+hypothesis \parencite{fama1970,fama1991} holds that prices already embed available
+information, so successive price changes are approximately unpredictable. It is conventionally stated in three nested forms, graded by the
+information set a forecaster is allowed to use:
 
-A subtlety that is easy to lose is \emph{which} feature of the return distribution
-efficiency actually constrains. The hypothesis is a statement about the conditional
-\textbf{mean} of returns: the best forecast of next period's return, given the
-information available today, is essentially its long-run average. It says nothing about
-the conditional \textbf{variance}. Returns can therefore be simultaneously
-unpredictable in their mean and highly predictable in their spread---the well-documented
-phenomenon of volatility clustering \parencite{engle1982,bollerslev1986}, in which large
-moves follow large moves regardless of sign. Efficiency in the first moment and
-structure in the second are not in tension. Recognising this is what allows a single
-study to say something coherent about both, and it is the organising idea of the thesis.
+\begin{itemize}
+    \item \textbf{Weak form} --- past prices and returns carry no exploitable signal.
+    \item \textbf{Semi-strong form} --- no \emph{public} information does either: not
+    prices, fundamentals, news, or macroeconomic data.
+    \item \textbf{Strong form} --- not even \emph{private}, inside information does.
+\end{itemize}
 
-Empirically, silver's \emph{price} behaves like a random walk: it is non-stationary, and
-shocks accumulate rather than mean-revert. The object worth modelling is therefore not
+\noindent Each form nests the one before it, so the claims grow progressively stronger.
+For a liquid, globally traded metal, weak- and semi-strong-form efficiency are the
+natural hypotheses to take to the data, and they are the two this thesis tests.
+
+Empirically, silver's \emph{price} behaves like a random walk with drift: it is
+non-stationary, and shocks accumulate rather than mean-revert
+(Figure~\ref{fig:silver-price}). The object worth modelling is therefore not
 the price level but its increment, the weekly log-return
-\(r_t = \log P_t - \log P_{t-1}\). The efficiency question then becomes whether \(r_t\)
-can be forecast---first from its own past, and then from the broad set of public
-information that a real forecaster would actually possess: cross-asset returns (gold,
-the US dollar, copper, equities, oil, and the VIX), futures-market positioning,
-macroeconomic releases, technical indicators, and retail and news sentiment.
+\(r_t = \log P_t - \log P_{t-1}\). Differencing the non-stationary level into this
+increment is what makes the forecasting problem well-posed: \(r_t\) is stationary---it
+fluctuates around a stable long-run mean rather than wandering without bound---so there
+is a fixed quantity to predict and a natural yardstick, that same prevailing average, to
+judge any forecast against.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/output.png}
+    \caption{Silver front-month futures (SI=F), daily, January 2015--May 2026. The
+    annotated episodes punctuate the sample: the COVID-19 crash (March 2020), the
+    r/WallStreetSilver squeeze (January 2021), the start of the Federal Reserve's hiking
+    cycle (March 2022), and the 2024--2026 bull run that carried spot to an all-time high
+    near \$115/oz before a sharp ($-41\%$) correction. The level is non-stationary and
+    shocks accumulate; the thesis models its stationary weekly log-return rather than the
+    level itself.}
+    \label{fig:silver-price}
+\end{figure} The efficiency question then becomes whether \(r_t\)
+can be forecast---and silver's own past offers surprisingly little to go on. Weekly
+returns carry almost no linear autocorrelation, so a linear own-history model such as
+ARIMA has little to grip; a formal model search duly collapses it to a constant mean. Yet
+the returns are not independent noise either, because their \emph{magnitude} is
+persistent---volatile weeks cluster together---so structure remains, only in the variance
+rather than the mean. The thesis follows this thread: it asks first whether silver's own
+history forecasts the return, then whether the broad public-information set a real
+forecaster would possess does---cross-asset returns (gold, the US dollar, copper,
+equities, oil, and the VIX), futures-market positioning, macroeconomic releases,
+technical indicators, and retail and news sentiment---and, separately, whether the
+predictable variance can be modelled.
 
 \textbf{Research questions.} The thesis is built around four questions:
 \begin{itemize}
-    \item \textbf{RQ1 (weak form).} Are weekly silver returns forecastable from their
+    \item \textbf{Q1 (weak form).} Are weekly silver returns forecastable from their
     own past?
-    \item \textbf{RQ2 (semi-strong form).} Does expanding the information set to public
+    \item \textbf{Q2 (semi-strong form).} Does expanding the information set to public
     covariates help---and does it matter whether the relationship is assumed linear or
     allowed to be nonlinear?
-    \item \textbf{RQ3 (the second moment).} Is weekly realised volatility forecastable,
+    \item \textbf{Q3 (the second moment).} Is weekly realised volatility forecastable,
     and if so by how much?
-    \item \textbf{RQ4 (sentiment).} Does retail and news sentiment add incremental
+    \item \textbf{Q4 (sentiment).} Does retail and news sentiment add incremental
     predictive content to either the conditional mean or the conditional variance?
 \end{itemize}
 
@@ -340,6 +357,23 @@ first of these. Weekly silver returns are close to white noise in the mean but n
 strict white noise, because squared returns are strongly autocorrelated. The predictable
 structure is therefore concentrated in the second moment, which is what the volatility
 chapter (Section~\ref{sec:var}) targets directly via realised volatility.
+Figure~\ref{fig:returns-acf} shows both moments at once for the weekly silver return.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/returns_acf.png}
+    \caption{The two moments of the weekly silver log-return, 2015--2026. \emph{Left:}
+    the return series---stationary, fluctuating around a small positive drift
+    (mean \(\approx 0.0027\)/week). \emph{Centre:} the sample autocorrelation of returns
+    lies almost entirely within the 95\% white-noise band (dashed), with only isolated
+    lags breaching it---consistent with the martingale-difference null of
+    Equation~\eqref{eq:weak-null}, so a linear own-history model has little to exploit.
+    \emph{Right:} the autocorrelation of \emph{squared} returns is large and positive
+    across the first several lags---the volatility clustering of
+    Section~\ref{sec:framework-var}. The mean is close to unpredictable; the variance is
+    not.}
+    \label{fig:returns-acf}
+\end{figure}
 
 \subsection{Direction versus magnitude}
 \label{sec:framework-direction}
@@ -359,30 +393,119 @@ themselves reject the martingale-difference null.
 \label{sec:lit}
 % ═════════════════════════════════════════════════════════════════════════════
 
-% SKELETON — to be written. Planned subsections and the spine of each:
+The thesis sits at the intersection of five strands of literature: the long empirical
+record on commodity-return predictability and market efficiency, mixed-frequency
+regression, machine learning for financial forecasting, realised-volatility modelling,
+and text-based sentiment. This section reviews each in turn, with an eye on the specific
+design choices they motivate in the chapters that follow.
 
 \subsection{Commodity-return predictability and market efficiency}
-% Random-walk benchmark hard to beat for commodity spot prices (deaton1992);
-% near-unit-root levels vs stationary returns (zhang2010); silver's co-movement with
-% gold/USD/equities (batten2010). Anchor the weak/semi-strong framing in fama1970/1991,
-% samuelson1965, and the out-of-sample-predictability debate (welch2008, campbell2008).
+
+The efficiency framing of Section~\ref{sec:framework} descends directly from
+\textcite{samuelson1965} and the weak/semi-strong/strong taxonomy of
+\textcite{fama1970}, whose later survey \parencite{fama1991} reframed the weak form
+more broadly as ``tests for return predictability''---precisely the form the present
+exercise takes. For commodities specifically, the canonical stylised facts are
+discouraging for forecasters: \textcite{deaton1992} document spot prices that are
+extremely volatile, dominated by long quiet spells punctuated by sharp spikes, and
+difficult to distinguish from highly persistent, near-unit-root processes---which is why
+the stationary increment (the return), not the level, is the only defensible modelling
+target. At the same time, commodities do not move in isolation:
+\textcite{zhang2010} find cointegration and price discovery between crude oil and gold,
+and \textcite{batten2010} show that the macroeconomic determinants of volatility differ
+across the precious metals, with silver responding to a different mix of monetary
+variables than gold. Together these findings motivate the cross-asset information set
+used here---gold, the dollar, copper, equities, the VIX, and oil---while cautioning
+against treating silver as a small gold.
+
+Whether any of that public information translates into out-of-sample forecasting power
+is the subject of a debate the thesis borrows its evaluation protocol from.
+\textcite{welch2008} re-examine the full catalogue of variables claimed to predict the
+equity premium and find that essentially none beats the prevailing historical mean once
+evaluated out of sample; \textcite{campbell2008} reply that modest gains are possible,
+but only with theory-imposed restrictions, and propose the out-of-sample \(R^2\) against
+the prevailing-mean forecast as the natural yardstick. That benchmark---the
+random-walk-with-drift, estimated as an expanding historical mean---and that metric are
+adopted unchanged in Section~\ref{sec:method}. Finally, \textcite{lo2004} offers the
+adaptive-markets reading in which efficiency is not a binary property but an
+evolutionary, time-varying one, so that pockets of predictability can appear and decay;
+this is the natural frame for the episodic, non-replicating directional signals
+encountered in Section~\ref{sec:mean}.
 
 \subsection{Mixed-frequency models (MIDAS)}
-% ghysels2004/2007 framework; Beta vs exponential-Almon weights; andreou2013 on daily
-% financial data for lower-frequency targets. Why MIDAS suits macro-at-daily here.
+
+Forecasting a weekly return with monthly macroeconomic releases and daily market data
+poses an alignment problem: aggregating the high-frequency series throws information
+away, while including every high-frequency lag as a free regressor invites massive
+parameter proliferation. Mixed-data-sampling (MIDAS) regression
+\parencite{ghysels2004,ghysels2007} resolves the trade-off by letting the
+high-frequency lags enter through a low-dimensional weight polynomial---typically the
+Beta or exponential-Almon family---so that a long lag window costs two or three
+parameters instead of dozens. \textcite{andreou2013} demonstrate the payoff in the
+direction most studied, using daily financial data to forecast quarterly macro
+aggregates; the present application inverts that direction, bringing monthly macro
+releases and daily cross-asset returns to bear on a weekly financial target. The
+\texttt{midasr} package \parencite{ghysels2016r} documents the now-standard estimation
+approach---nonlinear least squares over the weight parameters with the linear
+coefficients profiled out---which the Python implementation in this thesis follows.
 
 \subsection{Machine learning and deep learning for financial time series}
-% Tree ensembles and LSTMs (hochreiter1997); mixed evidence on out-performance
-% (sezer2020). Framed as the nonlinear alternative f(G_t) of Section~\ref{sec:framework}.
+
+Tree ensembles and recurrent neural networks instantiate the nonlinear alternative
+\(f(G_t)\) of Section~\ref{sec:framework-nonlin}: random forests and gradient boosting
+capture thresholds and interactions without specifying them in advance, and the long
+short-term memory network \parencite{hochreiter1997} adds explicit sequence memory,
+extracting its own representation of the recent past rather than consuming hand-picked
+lags. The applied literature is large and, on its face, encouraging---the systematic
+review of \textcite{sezer2020} catalogues hundreds of deep-learning forecasting studies
+reporting gains over classical models. It is also methodologically uneven: benchmarks
+are often weak or absent, evaluation windows short, and statistical significance rarely
+assessed, so reported out-performance frequently dissolves against an honest no-change
+or prevailing-mean benchmark. The design response in this thesis is to keep the model
+ladder flexible but the referee strict: every learner, however expressive, is scored
+against the same drift benchmark with the same Diebold--Mariano test, so that
+flexibility can only ever strengthen---never substitute for---the efficiency verdict.
 
 \subsection{Realised volatility and the HAR model}
-% ARCH/GARCH (engle1982, bollerslev1986); HAR-RV (corsi2009); proxy-robust forecast
-% evaluation and QLIKE (patton2011). Why predictable variance is consistent with the EMH.
+
+That the conditional variance, unlike the conditional mean, is forecastable has been
+textbook knowledge since \textcite{engle1982} introduced ARCH and \textcite{bollerslev1986}
+generalised it: volatility clusters, so its own past predicts it. The realised-volatility
+literature sharpened the target, replacing latent variance with a model-free estimate
+built from higher-frequency squared returns---here, weekly realised volatility from
+daily returns. Its workhorse forecaster is the heterogeneous autoregressive (HAR) model
+of \textcite{corsi2009}, which regresses next period's realised volatility on its own
+past averaged over short, medium, and long horizons; despite being estimable by OLS, the
+cascade of horizons approximates the long memory of volatility well enough that HAR
+remains the standard benchmark. Evaluation has its own subtlety: realised volatility is
+itself a noisy proxy of the latent target, and \textcite{patton2011} shows that only a
+restricted family of loss functions---in practice MSE and QLIKE---ranks forecasts
+consistently under proxy noise, with QLIKE the more powerful in heavy-tailed samples.
+The volatility chapter therefore reports QLIKE-based Diebold--Mariano tests as primary.
+None of this strains the efficiency hypothesis, which constrains the mean and not the
+variance (Section~\ref{sec:framework-var}): predictable volatility is permitted, and
+indeed expected.
 
 \subsection{Financial sentiment and investor attention}
-% FinBERT (araci2019, devlin2019) and Twitter-RoBERTa (loureiro2022, liu2019);
-% media-sentiment effects on returns (tetlock2007) and on volatility (audrino2020);
-% retail attention and the 2021 squeeze (anand2021, smales2021).
+
+That media tone carries information for markets predates modern language models:
+\textcite{tetlock2007}, using a simple dictionary count of a Wall Street Journal
+column, found that media pessimism predicts downward pressure on prices followed by
+reversal. What has changed is measurement. Transformer language models
+\parencite{devlin2019,liu2019} replaced dictionaries with contextual representations,
+and domain-adapted variants---FinBERT for financial news \parencite{araci2019} and
+Twitter-RoBERTa for social-media text \parencite{loureiro2022}---now score sentiment
+with near-annotator accuracy on their home domains; both are used here, each on the text
+type it was trained for. On where such signals should help, the evidence points to the
+second moment: \textcite{audrino2020} find that sentiment and attention measures add
+significant predictive power for stock-market volatility---with attention the stronger
+of the two---but only marginal power for returns, and \textcite{smales2021} documents
+investor attention, proxied by Google searches, as a state variable for market reactions
+under stress. Silver brings a natural laboratory for these attention effects: the
+January 2021 r/WallStreetSilver episode (Section~\ref{sec:intro}) was an explicitly
+coordinated retail-attention shock, and the Reddit and news series collected here cover
+it. The volatility chapter's sentiment ablation is designed exactly along this
+literature's fault line: attention versus tone, variance versus mean.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Data}
