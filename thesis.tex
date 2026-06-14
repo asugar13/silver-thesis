@@ -159,7 +159,7 @@ The weekly (Friday-to-Friday) horizon is a deliberate choice of frequency, made 
 information aligns. Futures-market positioning is reported weekly and macroeconomic
 releases monthly, while daily sentiment is too sparse and noisy to inform a forecast and
 daily returns are dominated by microstructure noise; a weekly horizon is coarse enough to
-average out that noise yet fine enough to leave roughly six hundred observations over
+average out that noise yet fine enough to leave roughly 600 observations over
 2015--2026---enough to train and properly out-of-sample-test the machine-learning models.
 Weekly realised volatility, the target of the second-moment analysis, is in turn
 aggregated from daily returns.
@@ -336,16 +336,6 @@ variance almost exactly. The volatility chapter (Section~\ref{sec:var}) builds o
 targeting weekly realised volatility aggregated from daily squared returns.
 Figure~\ref{fig:returns-acf} shows both moments at once for the weekly silver return.
 
-% ─────────────────────────────────────────────────────────────────────────────
-% PROF-DISCUSS (return-units convention): descriptive return statistics are
-% conventionally reported in PERCENT in empirical finance (mean weekly return = 0.27%,
-% not the raw log-return 0.0027), so the caption and the figure legend use %. The
-% symbolic r_t and the variance-proxy identity (Eq. eq:var-proxy) are kept in
-% decimal/natural units, as equations normally are. Caveat to raise with the supervisor:
-% a log-return expressed in % is technically a "log point", which differs negligibly from
-% a simple-return percentage at weekly magnitudes — worth a one-line footnote if he wants
-% the distinction made explicit, otherwise % throughout the descriptive text is standard.
-% ─────────────────────────────────────────────────────────────────────────────
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{images/returns_acf.png}
@@ -666,7 +656,7 @@ the weekly target through a low-dimensional weight polynomial---the Beta and
 exponential-Almon families \parencite{ghysels2004,ghysels2007}---estimated by nonlinear
 least squares, with the weight family selected on the validation window. Two variants are
 run: monthly macro at three lags, and a multi-frequency model adding the six cross-asset
-returns at twenty daily lags \parencite{andreou2013}.
+returns at 20 daily lags \parencite{andreou2013}.
 
 \textbf{Random forest and gradient boosting.} Nonlinear ensembles that admit thresholds
 and interactions among the lagged features---a random forest \parencite{breiman2001} and
@@ -678,7 +668,7 @@ model is re-fit every four weeks in the walk-forward.
 reads a fixed window of recent weeks and learns its own representation of the past; a
 single recurrent layer with dropout and early stopping is used, given the small sample (a
 few hundred training sequences). A weekly-input model and a daily-input variant (a
-sixty-trading-day window) are estimated, the latter testing whether daily-resolution
+60-trading-day window) are estimated, the latter testing whether daily-resolution
 information helps forecast the weekly return.
 
 The classical and tree models are run under both windowing schemes; the LSTM uses a single
@@ -696,7 +686,7 @@ summed daily squared returns,
     \label{eq:rv}
 \end{equation}
 a model-free volatility proxy. Its predictors are the heterogeneous-autoregressive (HAR)
-lags---one-week, monthly (four-week mean), and quarterly (twelve-week mean) trailing
+lags---1-week, monthly (4-week mean), and quarterly (12-week mean) trailing
 realised volatility---optionally extended with the six cross-asset realised volatilities,
 Reddit attention and sentiment-intensity measures, and Google Trends search interest; the
 last three form the volatility chapter's sentiment ablation, and Google Trends enters here
