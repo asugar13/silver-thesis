@@ -211,27 +211,7 @@ equivalent to ARIMA(0,0,0)---which is the correct null for a return target
 classical time-series models (ARIMA/ARIMAX, VAR, and MIDAS regressions) through tree
 ensembles (random forests and gradient boosting) to a recurrent neural network (LSTM);
 for the conditional variance it runs GARCH and the heterogeneous autoregressive (HAR)
-model of \textcite{corsi2009} alongside the same tree ensembles. Forecasts are compared
-on out-of-sample \(R^2\) relative to the drift \parencite{campbell2008}, the
-Diebold--Mariano test of equal predictive accuracy \parencite{diebold1995}, and the
-Pesaran--Timmermann test of directional accuracy \parencite{pesaran1992}, all on a
-held-out 2023--2026 test window.
-
-% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the whole paragraph)
-{\color{red}
-\textbf{Structure.} The remainder of the thesis is organised as follows.
-Section~\ref{sec:framework} sets out the conceptual framework---the random-walk view of
-prices, the martingale-difference characterisation of the conditional mean, the
-expanding information set, and the linear-versus-nonlinear alternatives that motivate the
-model ladder. Section~\ref{sec:lit} reviews the relevant literature on commodity-return
-predictability, mixed-frequency modelling, realised-volatility forecasting, and financial
-sentiment. Section~\ref{sec:data} describes the data and feature construction.
-Section~\ref{sec:method} presents the models and the unified evaluation protocol.
-Section~\ref{sec:mean} reports the conditional-mean (returns) results, and
-Section~\ref{sec:var} the conditional-variance (volatility) results.
-Section~\ref{sec:discussion} discusses the findings against the efficiency framing, and
-Section~\ref{sec:conclusion} concludes with limitations and directions for future work.
-}
+model of \textcite{corsi2009} alongside the same tree ensembles.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Conceptual Framework}
@@ -317,22 +297,18 @@ linearly and additively. Nonlinear models entertain the broader alternative
 \begin{equation}
     \E[r_{t+1} \mid G_t] = f(G_t),
 \end{equation}
-where \(f\) may encode thresholds, interactions, regime dependence, and sequence
-effects. The motivation is concrete: a signal may be invisible to any single covariate
-yet present in a combination. Each condition alone may carry little signal,
-\(\E[r_{t+1}\mid \text{high sentiment}] \approx \mu\) and
-\(\E[r_{t+1}\mid \text{stretched COT}] \approx \mu\), while the joint condition does not,
-\begin{equation}
-    \E\!\left[r_{t+1}\mid \text{high sentiment},\ \text{stretched COT},\
-    \text{rising VIX},\ \text{falling USD}\right] \neq \mu .
-\end{equation}
-Random forests, gradient boosting, and the LSTM search this larger space.
+in which the conditional mean can respond to thresholds and interactions among the
+covariates rather than to each one additively---a signal might be invisible in any single
+predictor yet surface in a combination of them. Random forests, gradient boosting, and the
+LSTM search this larger space.
 The logic of the ladder is therefore cumulative: if even flexible nonlinear models fail
 to beat the drift benchmark out of sample, the martingale-difference interpretation is
-\emph{strengthened} rather than merely assumed from linear tests. A complementary
+\emph{strengthened} rather than merely assumed from linear tests.
+% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the sentence)
+{\color{red}A complementary
 own-history check, the generalised spectral test \parencite{hong2003}, probes for
 nonlinear departures from Equation~\eqref{eq:weak-null} that linear autocorrelation
-diagnostics cannot see.
+diagnostics cannot see.}
 
 \subsection{The conditional variance}
 \label{sec:framework-var}
@@ -346,16 +322,36 @@ volatile. Strict white noise would require independence in \(r_t\), \(r_t^2\), a
 \(|r_t|\) alike; the MDS property in Equation~\eqref{eq:weak-null} restricts only the
 first of these. Weekly silver returns are close to white noise in the mean but not
 strict white noise, because squared returns are strongly autocorrelated. The predictable
-structure is therefore concentrated in the second moment, which is what the volatility
-chapter (Section~\ref{sec:var}) targets directly via realised volatility.
+structure is therefore concentrated in the second moment, and the squared return is its
+natural proxy: by definition
+\begin{equation}
+    \E[r_t^2] = \operatorname{Var}(r_t) + \big(\E[r_t]\big)^2,
+    \label{eq:var-proxy}
+\end{equation}
+and at the weekly horizon the squared mean is negligible. For silver
+\(\big(\E[r_t]\big)^2 \approx 7\times10^{-6}\) is only \(0.4\%\) of the variance
+\(\operatorname{Var}(r_t) \approx 1.9\times10^{-3}\), so
+\(\E[r_t^2] \approx \operatorname{Var}(r_t)\): at this frequency a squared return measures
+variance almost exactly. The volatility chapter (Section~\ref{sec:var}) builds on this,
+targeting weekly realised volatility aggregated from daily squared returns.
 Figure~\ref{fig:returns-acf} shows both moments at once for the weekly silver return.
 
+% ─────────────────────────────────────────────────────────────────────────────
+% PROF-DISCUSS (return-units convention): descriptive return statistics are
+% conventionally reported in PERCENT in empirical finance (mean weekly return = 0.27%,
+% not the raw log-return 0.0027), so the caption and the figure legend use %. The
+% symbolic r_t and the variance-proxy identity (Eq. eq:var-proxy) are kept in
+% decimal/natural units, as equations normally are. Caveat to raise with the supervisor:
+% a log-return expressed in % is technically a "log point", which differs negligibly from
+% a simple-return percentage at weekly magnitudes — worth a one-line footnote if he wants
+% the distinction made explicit, otherwise % throughout the descriptive text is standard.
+% ─────────────────────────────────────────────────────────────────────────────
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{images/returns_acf.png}
     \caption{The two moments of the weekly silver log-return, 2015--2026. \emph{Left:}
     the return series---stationary, fluctuating around a small positive drift
-    (mean \(\approx 0.0027\)/week). \emph{Centre:} the sample autocorrelation of returns
+    (mean \(\approx 0.27\%\) per week). \emph{Centre:} the sample autocorrelation of returns
     lies almost entirely within the 95\% white-noise band (dashed), with only isolated
     lags breaching it---consistent with the martingale-difference null of
     Equation~\eqref{eq:weak-null}, so a linear own-history model has little to exploit.
