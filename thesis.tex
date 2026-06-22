@@ -223,7 +223,7 @@ model of \textcite{corsi2009} alongside the same tree ensembles.
 % model ladder; the Conclusion (sec:conclusion) revisits the one-paragraph synthesis.
 % Drafted concisely below; expand per notebooks/weekly/formulas.md as needed.
 
-This section fixes the notation used throughout and states, precisely, the nulls that
+This section fixes the notation used throughout and states, precisely, the null hypothesis that
 each model class is built to test. The aim is to keep the language exact without
 overclaiming: the empirical results are framed as tests of the conditional mean and the
 conditional variance of weekly silver returns, not as claims about the full return
@@ -322,17 +322,19 @@ volatile. Strict white noise would require independence in \(r_t\), \(r_t^2\), a
 first of these. Weekly silver returns are close to white noise in the mean but not
 strict white noise, because squared returns are strongly autocorrelated. The predictable
 structure is therefore concentrated in the second moment, and the squared return is its
-natural proxy: by definition
+natural proxy. By definition it splits into the variance and the squared mean, and at the
+weekly horizon the latter is negligible:
 \begin{equation}
-    \E[r_t^2] = \operatorname{Var}(r_t) + \big(\E[r_t]\big)^2,
+    \E[r_t^2]
+    = \underbrace{\operatorname{Var}(r_t)}_{\approx\,1.9\times10^{-3}}
+    + \underbrace{\big(\E[r_t]\big)^2}_{\approx\,7\times10^{-6}}
+    \;\approx\; \operatorname{Var}(r_t).
     \label{eq:var-proxy}
 \end{equation}
-and at the weekly horizon the squared mean is negligible. For silver
-\(\big(\E[r_t]\big)^2 \approx 7\times10^{-6}\) is only \(0.4\%\) of the variance
-\(\operatorname{Var}(r_t) \approx 1.9\times10^{-3}\), so
-\(\E[r_t^2] \approx \operatorname{Var}(r_t)\): at this frequency a squared return measures
-variance almost exactly. The volatility chapter (Section~\ref{sec:var}) builds on this,
-targeting weekly realised volatility aggregated from daily squared returns.
+The squared mean is only \(0.4\%\) of the variance, so a squared return is---to that
+approximation---a model-free measure of variance. This is what the volatility chapter
+(Section~\ref{sec:var}) builds on, summing daily squared returns into weekly realised
+volatility.
 Figure~\ref{fig:returns-acf} shows both moments at once for the weekly silver return.
 
 \begin{figure}[htbp]
@@ -578,8 +580,10 @@ models---and the rest of this section explains the choices a table cannot convey
         FRED daily    & \texttt{real\_rates\_chg}, \texttt{breakeven\_chg}, \texttt{jobless\_chg} & FRED & Daily/Wk & weekly change \\
         Positioning (COT) & \texttt{cot\_mm\_net\_pct}, \texttt{cot\_comm\_net\_pct} & CFTC & Weekly & net position / open interest \\
         Sentiment     & \texttt{reddit\_sentiment}, \texttt{news\_sentiment} & Reddit, GDELT & Daily & weekly mean of RoBERTa / FinBERT scores \\
+        Paid news (NEWS\_PAID) & \texttt{news\_paid\_sentiment\_title} & NewsAPI.ai & Daily & weekly mean of FinBERT title scores \\
         Technical (TECH) & \texttt{macd\_line}, \texttt{macd\_hist}, \texttt{rsi\_14w}, \texttt{mom\_5w}, \texttt{roc\_13/26/52w}, \texttt{price\_ma13w}, \texttt{donchian\_52w}, \texttt{bb\_pct\_b} & Yahoo Finance & Weekly & directional momentum / trend indicators \\
         Macro (MACRO) & \texttt{cpi}, \texttt{fed\_funds}, \texttt{ind\_prod}, \texttt{m2} & FRED & Monthly & 3 publication-availability lags each \\
+        PMI           & \texttt{china\_pmi\_proxy} & FRED & Monthly & latest published monthly level \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -640,35 +644,38 @@ models---and the rest of this section explains the choices a table cannot convey
     \end{itemize}
     Each as a share of open interest.
 
-    \item \textbf{Sentiment} --- Reddit, GDELT, Google Trends (English-language / worldwide):
+    \item \textbf{Sentiment} --- Reddit, GDELT, NewsAPI.ai, Google Trends (English-language / worldwide):
     \begin{itemize}[nosep]
         \item Reddit posts (r/WallStreetSilver, r/Silverbugs; via Arctic Shift): retail attention and tone, scored with Twitter-RoBERTa \parencite{loureiro2022}
         \item GDELT news headlines: global media tone, scored with FinBERT \parencite{araci2019}
+        \item NewsAPI.ai (Event Registry) paid news: reputable English-language sources, from 2015 and at least one article per week, scored with FinBERT \parencite{araci2019} on the article title
         \item Google Trends ``silver'' search interest: worldwide retail attention (volatility chapter only)
     \end{itemize}
     Each text source is averaged to a weekly mean. GDELT is sparse---it begins only in late
     2017 and has zero-article weeks even inside the test window---so the news series is a
-    documented limitation, and the volatility chapter (Section~\ref{sec:var}) relies on
+    documented limitation; the paid NewsAPI.ai feed covers the full sample and is the
+    cleaner news source, while the volatility chapter (Section~\ref{sec:var}) relies on
     Reddit and Google Trends instead.
+
+    \item \textbf{Business sentiment (PMI)} --- FRED, monthly: a China business-confidence
+    proxy (\texttt{CHNBSCICP02STSAM}), a balance-of-opinion level standing in for industrial
+    demand from silver's largest physical consumer. Unlike the macro block (three pre-lagged
+    publication lags), it enters as a single point-in-time level---the most recent value
+    released by its publication date (a 31-day reporting lag)---taken as the week's last
+    observation and lagged one week by each model, exactly like the gold/silver ratio. It is
+    kept as its own ablation group rather than folded into the US macro set.
 \end{itemize}
 
 \subsection{Technical indicators}
 
-Technical indicators are rule-based transforms of past prices that chart analysts use to
-read momentum and trend. Computed here from silver's own weekly price, they form the TECH
-ablation group---a test of whether such signals carry predictive content. All are
-direction-sensitive:
-
-\begin{itemize}[nosep]
-    \item MACD line (\texttt{macd\_line}): the gap between silver's fast (12-week) and slow (26-week) exponential moving averages --- positive when the short-term price runs above the longer trend
-    \item MACD histogram (\texttt{macd\_hist}): the MACD line minus its 9-week signal line --- whether that momentum is building or fading
-    \item RSI (\texttt{rsi\_14w}): the 14-week Relative Strength Index (0--100), recent gains versus losses --- high readings flag an overbought market, low ones oversold
-    \item 5-week momentum (\texttt{mom\_5w}): the cumulative return over the past five weeks
-    \item rate of change (\texttt{roc\_13w/26w/52w}): the percentage price change over the past quarter, half-year, and year --- momentum at three horizons
-    \item price vs.\ moving average (\texttt{price\_ma13w}): how far the price sits above or below its 13-week average
-    \item Donchian position (\texttt{donchian\_52w}): where the price sits in its 52-week high--low range, rescaled to \([-1,+1]\) (\(+1\) at the yearly high, \(-1\) at the low)
-    \item Bollinger \%B (\texttt{bb\_pct\_b}): the price's position within its Bollinger Bands (0 at the lower band, 1 at the upper) --- a normalised distance from the 20-week average
-\end{itemize}
+The TECH ablation group collects momentum and trend transforms of silver's own weekly
+price---MACD, RSI, rate-of-change, momentum, price-to-moving-average, Donchian position, and
+Bollinger \%B (the full list is in Table~\ref{tab:variables})---the standard chart-analysis
+toolkit, included to test whether such signals carry predictive content for the return.
+Pure volatility and dispersion indicators are not included: they inform the conditional
+\emph{variance} rather than the conditional mean a return forecast targets, so they carry
+little information for the return. The exact formulas and parameters are in the project
+repository.\footnote{\url{https://github.com/asugar13/silver-thesis}}
 
 \subsection{Feature frame and split}
 \label{sec:data-frame}
@@ -743,8 +750,10 @@ through linear public-information, to nonlinear machine learning---every rung ju
 against the same drift floor. Each exogenous predictor enters lagged one week
 (Section~\ref{sec:data-frame}), and the ablation \emph{ladder} adds feature groups
 cumulatively to a six-asset cross-return base (EXOG): the gold/silver ratio, technical
-indicators, monthly macro, daily FRED indicators, COT positioning, and Reddit and news
-sentiment, up to an all-features rung.
+indicators, monthly macro, the China PMI proxy, daily FRED indicators, COT positioning, and
+Reddit, GDELT, and reputable paid-news sentiment, up to an all-features rung. The paid-news
+rungs mirror the GDELT-news rungs with the title-only paid score swapped in, and the PMI
+proxy is added to each daily-FRED rung.
 
 \textbf{ARIMA / ARIMAX.} An \(\mathrm{ARIMA}(p,d,q)\) model with order chosen by AIC on the
 training and validation data; the search selects \(\mathrm{ARIMA}(0,0,0)\)---that is,
