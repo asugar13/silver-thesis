@@ -50,6 +50,8 @@
 
 % ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
+\pagenumbering{gobble}
+\hypersetup{pageanchor=false}
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  Title page
@@ -113,6 +115,9 @@ contradictory.
 \newpage
 
 % ═════════════════════════════════════════════════════════════════════════════
+\hypersetup{pageanchor=true}
+\pagenumbering{arabic}
+\setcounter{page}{1}
 \section{Introduction}
 \label{sec:intro}
 % ═════════════════════════════════════════════════════════════════════════════
@@ -152,8 +157,6 @@ therefore not the price level but its increment, the weekly log-return
 well-posed, giving a fixed quantity to predict and a natural yardstick---that same
 prevailing average---to judge any forecast against.
 
-% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the whole paragraph)
-{\color{red}
 The weekly (Friday-to-Friday) horizon is a deliberate choice of frequency, made where the
 information aligns. Futures-market positioning is reported weekly and macroeconomic
 releases monthly, while daily sentiment is too sparse and noisy to inform a forecast and
@@ -162,7 +165,6 @@ average out that noise yet fine enough to leave roughly 600 observations over
 2015--2026---enough to train and properly out-of-sample-test the machine-learning models.
 Weekly realised volatility, the target of the second-moment analysis, is in turn
 aggregated from daily returns.
-}
 
 \begin{figure}[htbp]
     \centering
@@ -303,11 +305,6 @@ LSTM search this larger space.
 The logic of the ladder is therefore cumulative: if even flexible nonlinear models fail
 to beat the drift benchmark out of sample, the martingale-difference interpretation is
 \emph{strengthened} rather than merely assumed from linear tests.
-% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the sentence)
-{\color{red}A complementary
-own-history check, the generalised spectral test \parencite{hong2003}, probes for
-nonlinear departures from Equation~\eqref{eq:weak-null} that linear autocorrelation
-diagnostics cannot see.}
 
 \subsection{The conditional variance}
 \label{sec:framework-var}
@@ -680,18 +677,18 @@ repository.\footnote{\url{https://github.com/asugar13/silver-thesis}}
 \subsection{Feature frame and split}
 \label{sec:data-frame}
 
-% TEMP: colour-marked — delete this {\color{red} ... } wrapper (or the whole paragraph)
-{\color{red}
-Daily-to-weekly aggregation follows fixed rules: returns and FRED changes are summed,
-sentiment is averaged, and levels (\texttt{gs\_ratio\_z}) and COT positioning take the
-week's last value. Features enter raw and contemporaneous---the macro block and a best-lag
-ablation set excepted---and each model applies its own one-week lag, so a feature at the
-Friday-\(t{-}1\) close forecasts the Friday-\(t\) return with no intra-week look-ahead. The
-split is chronological, on Friday boundaries: 2015--2021 train, 2022 validation, and 2023
-to May 2026 as the held-out test window (Table~\ref{tab:split}), deliberately placing the
-2024--2026 bull run in the test set so performance is judged across a genuine regime shift
-rather than an in-sample echo of it.
-}
+Daily series are aggregated to a common weekly (W-FRI) grid by fixed rules: returns and
+FRED changes are summed over the week, sentiment is averaged, and levels (e.g.\
+\texttt{gs\_ratio\_z}) and COT positioning take the week's last value. Every feature is then
+lagged before it enters a model, so a value at the Friday-\(t{-}1\) close forecasts the
+Friday-\(t\) return with no intra-week look-ahead---most by a uniform one week, the monthly
+macro block at its actual publication lag, and a best-lag ablation set at a pre-selected lag
+(for each predictor, the one most correlated with the target in-sample).
+
+The split is chronological, cut on Friday boundaries: 2015--2021 for training, 2022 for
+validation, and 2023 to May 2026 as the held-out test window (Table~\ref{tab:split}). This
+places the 2024--2026 bull run in the test set by design, so the models are judged across a
+genuine regime shift rather than on an in-sample echo of it.
 
 \begin{table}[htbp]
     \centering
@@ -892,15 +889,148 @@ results are a secondary, economically motivated lens.
 \label{sec:mean}
 % ═════════════════════════════════════════════════════════════════════════════
 
-% SKELETON — results chapter 1 (returns). Planned subsections:
+This chapter evaluates the conditional-mean models of Section~\ref{sec:method-mean} on the
+held-out 2023--2026 window, taking the weak- and semi-strong-form questions in turn. The
+benchmark throughout is the prevailing-mean drift, and the load-bearing test is the
+Diebold--Mariano (DM) comparison against it; the directional metrics are a secondary lens.
+Table~\ref{tab:returns-leaderboard} collects the headline numbers.
+
 \subsection{Weak form: own-history models}
-% ARIMA(0,0,0) = drift; rolling vs expanding; generalised spectral (MDS) test.
+
+At the series level, the own-history evidence already points to weak-form efficiency. A
+Ljung--Box test finds only marginal linear autocorrelation in weekly returns
+(\(p \approx 0.06\) at lag~10), and the generalised spectral test of \textcite{hong2003}
+---which probes nonlinear as well as linear departures---\emph{fails to reject} the
+martingale-difference null at every lag order tried (bootstrap \(p \approx 0.90\text{--}0.95\)
+for \(p \in \{5,10,20\}\)). The conditional mean is therefore unpredictable from past returns
+against both linear and nonlinear alternatives, while the same diagnostics strongly reject
+independence in the \emph{squared} returns (\(p \approx 0\))---the predictable structure is
+confined to the variance, not the mean. This series-level verdict anticipates the
+model-based floor: the AIC grid selects \(\mathrm{ARIMA}(0,0,0)\), the drift itself, so the
+best own-history model coincides with the random walk and no own-history forecast improves
+on it out of sample.
+
+The forecasting models confirm this. The AIC search over own-history ARIMA orders selects
+\(\mathrm{ARIMA}(0,0,0)\) outright, so the best linear own-history forecast \emph{is} the
+drift and there is nothing left to test. The only own-history variant that departs from it,
+a 100-week rolling ARIMA, does not significantly beat it---a marginal, insignificant edge
+that comes from tilting toward the 2025 trend and reverses once that year is removed. Past
+returns, linear or nonlinear, carry no exploitable signal for the conditional mean.
+
 \subsection{Semi-strong form: public information}
-% ARIMAX / VAR / MIDAS ladders; RF / XGB / LSTM ladders; OOS R^2 and DM vs drift.
+
+Expanding the information set does not change the verdict. Table~\ref{tab:returns-leaderboard}
+reports each family's RMSE-best variant over the full ablation ladder---cross-asset returns,
+the gold/silver ratio, monthly macro and the China PMI proxy, daily FRED indicators, COT
+positioning, and Reddit, GDELT and paid-news sentiment---with the tree ensembles and the LSTM
+free to combine them nonlinearly. The spread is strikingly tight: every family lands within
+about one percentage point of the drift's 5.19\% weekly RMSE, and the best of them---an
+XGBoost on the cross-asset returns plus paid-news sentiment---improves on the drift by all of
+0.05 points (\(R^2_{\text{OS}}=+1.8\%\)). Figure~\ref{fig:returns-rmse} shows the same picture:
+the bars sit on the drift floor.
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{5pt}
+    \caption{Weekly return forecasts---best variant per model family (RMSE-selected), full
+    2023--2026 test window. RMSE and MAE are in percentage points per week; \(R^2_{\text{OS}}\)
+    is the Campbell--Thompson out-of-sample \(R^2\) versus the drift (\%). Walk-forward window
+    qualifiers (expanding / rolling) are omitted from the variant labels. \textbf{No model row
+    beats the drift floor on a DM test} (smallest \(p=0.43\), squared-error loss; unchanged
+    under absolute error). The drift is the random-walk-with-drift benchmark
+    (\(=\mathrm{ARIMA}(0,0,0)\)); its WDA doubles as the always-up directional rate.}
+    \label{tab:returns-leaderboard}
+    \begin{tabular}{l l r r r r r}
+        \toprule
+        Family & Best variant & RMSE & MAE & \(R^2_{\text{OS}}\) & DA & WDA \\
+        \midrule
+        XGBoost        & \texttt{EXOG+ALLPaid}             & 5.14 & 3.69 & $+1.84$ & 0.540 & 0.574 \\
+        LSTM (daily)   & \texttt{EXOG-GS-SentimentPaid}    & 5.16 & 3.70 & $+1.27$ & 0.561 & 0.568 \\
+        Random Forest  & \texttt{EXOG+News}                & 5.16 & 3.72 & $+0.98$ & 0.517 & 0.560 \\
+        MIDAS (daily)  & \texttt{EXOG-d+GS\_HF}            & 5.17 & 3.67 & $+0.80$ & 0.586 & 0.586 \\
+        LSTM           & \texttt{EXOG-ALLPaid}             & 5.17 & 3.71 & $+0.59$ & 0.556 & 0.563 \\
+        VAR            & \texttt{EXOG+GS+Sentiment}        & 5.18 & 3.66 & $+0.41$ & 0.603 & 0.594 \\
+        ARIMAX         & \texttt{ARIMAX+GS+Sentiment}      & 5.18 & 3.65 & $+0.23$ & 0.609 & 0.588 \\
+        MIDAS          & \texttt{EXOG}                     & 5.21 & 3.71 & $-0.68$ & 0.546 & 0.507 \\
+        \midrule
+        \textit{Drift (prevailing mean)} & --- & 5.19 & 3.71 & $0.00$   & 0.557 & 0.588 \\
+        \textit{Naïve (\(t{-}1\))}       & --- & 7.59 & 5.40 & $-112.9$ & 0.491 & 0.490 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/returns_rmse.png}
+    \caption{Point-forecast error of each family's RMSE-best variant against the drift floor
+    (dotted), full test window. Green bars fall below the drift's RMSE/MAE, red above; all sit
+    within a hair of it, and the gap is statistically insignificant for every family. The
+    na\"ive \(t-1\) benchmark (hatched) is far worse---persistence is a poor reference for a
+    return.}
+    \label{fig:returns-rmse}
+\end{figure}
+
+None of this is statistically distinguishable from the random walk. Across all eight families
+and both selection criteria---sixteen family-selections in total---not one beats the drift on
+a DM test (squared-error loss; the smallest \(p\) is 0.43), and the verdict is unchanged under
+absolute-error loss, the heavy-tail robustness check. The Campbell--Thompson \(R^2_{\text{OS}}\)
+tells the effect-size version of the same story: it spans \(+1.8\%\) to \(-0.7\%\) for the
+magnitude-best variants and turns sharply negative for the directionally-selected ones, so on
+average a public-information model forecasts the weekly return no better than its own expanding
+historical mean. The null holds across model classes---the linear ARIMAX, VAR and MIDAS
+regressions, the tree ensembles, and the recurrent network all collapse onto the drift. Because
+the cross-asset returns are themselves public information, this puts even the EXOG base on
+trial, and it too fails: semi-strong-form efficiency is not rejected.
+
 \subsection{Direction versus magnitude}
-% DA/WDA, Pesaran--Timmermann; the COT directional caveat and its non-replication.
+
+A weaker, direction-only signal does surface. Several families call the sign of the weekly
+return more often than the always-up base rate---by the directionally-selected (WDA-best)
+criterion the linear models reach DA \(\approx 0.62\) (Figure~\ref{fig:returns-wda})---and a
+Pesaran--Timmermann (PT) test confirms genuine sign-timing in the linear ARIMAX and VAR
+(\(p=0.004\) and \(0.005\)) and in the daily-input MIDAS. But the signal is magnitude-worthless.
+The variants that maximise directional accuracy do so at the expense of point-forecast error:
+they carry negative \(R^2_{\text{OS}}\) (VAR's WDA-best loses 14\% to the drift) and win no DM
+test. It is also fragile---concentrated in the linear models and the post-hoc best-selected
+variants, while across the full ablation ladders of the nonlinear families it appears at no
+more than the chance rate (one of 38 random-forest variants, none of 38 for XGBoost). We read
+it as at most a heavily-caveated footnote, consistent with the adaptive-markets view of
+\textcite{lo2004} rather than as evidence against efficiency in the conditional mean.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/returns_wda.png}
+    \caption{Directional accuracy of each family's WDA-best variant. The drift bar
+    \emph{is} the always-up line (its sign is constant-positive); green beats it. Several
+    families clear it, but the directionally-selected variants are the ones with the worst
+    RMSE (Table~\ref{tab:returns-leaderboard}), so the directional edge does not translate into
+    magnitude accuracy.}
+    \label{fig:returns-wda}
+\end{figure}
+
 \subsection{Robustness}
-% Absolute-error DM; ex-2025; window schemes.
+
+The conclusion strengthens under scrutiny. Re-running the full battery with the exceptional
+2025 bull removed---pooling 2023, 2024 and 2026, 122 weeks---again yields zero of sixteen
+family-selections beating the floor; if anything the directionally-selected variants now fall
+significantly \emph{behind} it (VAR, \(p=0.048\)). The per-period view
+(Figure~\ref{fig:returns-period}) makes the point visually: no family holds a positive
+out-of-sample \(R^2\) across all four sub-periods---a good year is offset by a bad one, the
+signature of regime luck rather than skill, and the high directional accuracy of 2025 is
+simply the bull run rewarding the always-up tilt. The expanding and 100-week rolling windows
+tell the same story, with the rolling variants the worse of the two on balance. Weekly silver
+returns are, on this evidence, unforecastable from public information.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/returns_period.png}
+    \caption{Per-period robustness. \emph{Left:} directional accuracy (WDA) by calendar year
+    for the WDA-best variants---uniformly high in the 2025 bull, much weaker elsewhere.
+    \emph{Right:} out-of-sample \(R^2\) versus the drift by year for the RMSE-best variants;
+    the sign flips across periods for every family, so no magnitude edge is stable.}
+    \label{fig:returns-period}
+\end{figure}
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{The Conditional Variance: Forecasting Weekly Volatility}
