@@ -1085,6 +1085,28 @@ returns are, on this evidence, unforecastable from public information.
 \subsection{Sentiment and attention}
 % HAR+Attention / sentiment ablation; small-but-significant effect; permutation importance.
 
+The sentiment and attention ablation asks an incremental question within each model
+family: does adding a public-information block improve on the same estimator using
+only HAR realised-volatility lags? The answer is clearest for the linear HAR
+specification under squared-error loss. Reddit sentiment, combined Reddit
+attention/sentiment, paid-news attention, and the combined paid-news rung all
+significantly reduce MSE relative to HAR-RV, while Google Trends and paid-news
+sentiment alone do not. The effect is therefore not a wholesale replacement of the
+HAR volatility structure; it is a modest but statistically visible increment on top of
+volatility persistence.
+
+The tree-based results do not overturn that conclusion, but they make it more
+conditional. Random forests record slightly better point errors for some augmented
+specifications, yet the Diebold--Mariano tests mostly classify those gains as ties
+against the RF(HAR) baseline. XGBoost gives the strongest nonlinear evidence:
+the Reddit-attention rung significantly improves both MSE and QLIKE relative to
+XGB(HAR), and several sentiment/attention variants improve one loss even when the
+other remains a tie. Thus the public-information signal is useful for HAR and
+selectively useful for XGBoost, but the evidence is not broad enough to claim that
+tree ensembles dominate the HAR benchmark. Overall, HAR remains the central and
+most stable benchmark, while sentiment and attention add small, loss-dependent
+forecasting gains rather than changing the model ranking outright.
+
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Discussion}
 \label{sec:discussion}
