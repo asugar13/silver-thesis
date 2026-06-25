@@ -748,15 +748,27 @@ against the same drift floor. Each exogenous predictor enters lagged one week
 (Section~\ref{sec:data-frame}), and the ablation \emph{ladder} adds feature groups
 cumulatively to a six-asset cross-return base (EXOG): the gold/silver ratio, technical
 indicators, monthly macro, the China PMI proxy, daily FRED indicators, COT positioning, and
-Reddit, GDELT, and reputable paid-news sentiment, up to an all-features rung. The paid-news
-rungs mirror the GDELT-news rungs with the title-only paid score swapped in, and the PMI
-proxy is added to each daily-FRED rung.
+Reddit, GDELT, and reputable paid-news sentiment, up to an all-features rung.
+% TEMP: colour-marked for review — candidate for deletion
+{\color{red}The paid-news rungs mirror the GDELT-news rungs with the title-only paid score
+swapped in, and the PMI proxy is added to each daily-FRED rung.}
 
-\textbf{ARIMA / ARIMAX.} An \(\mathrm{ARIMA}(p,d,q)\) model with order chosen by AIC on the
-training and validation data; the search selects \(\mathrm{ARIMA}(0,0,0)\)---that is,
-\(r_t = \mu + \varepsilon_t\)---so the best own-history model coincides with the drift and
-gives the cleanest weak-form test. ARIMAX adds the lagged exogenous groups as regressors,
-\(r_t = \mu + \beta' x_{t-1} + \varepsilon_t\), and supplies the linear semi-strong test.
+\textbf{ARIMA / ARIMAX.} An \(\mathrm{ARIMA}(p,d,q)\) model expresses the \(d\)-th difference
+of the return through its own past values and past innovations,
+\begin{equation}
+    \phi(L)\,(1-L)^d r_t = \mu + \theta(L)\,\varepsilon_t, \qquad
+    \phi(L) = 1 - \sum_{i=1}^{p}\phi_i L^i, \quad
+    \theta(L) = 1 + \sum_{j=1}^{q}\theta_j L^j ,
+\end{equation}
+where \(L\) is the lag operator and \(\varepsilon_t\) is white noise. The order \((p,d,q)\) is
+chosen by AIC on the training and validation data; the search selects \(\mathrm{ARIMA}(0,0,0)\)
+---that is, \(r_t = \mu + \varepsilon_t\)---so the best own-history model coincides with the
+drift and gives the cleanest weak-form test. ARIMAX adds the lagged exogenous groups as
+regressors,
+\begin{equation}
+    r_t = \mu + \beta' x_{t-1} + \varepsilon_t ,
+\end{equation}
+and supplies the linear semi-strong test.
 
 \textbf{VAR.} A vector autoregression of silver and the cross-asset returns, stacked in a
 vector \(y_t\), with lag order \(p\) chosen by AIC,
@@ -809,7 +821,9 @@ information helps forecast the weekly return.
 
 The classical and tree models are run under both windowing schemes; the LSTM uses a single
 expanding-window training pass, since a 100-week rolling window leaves too few sequences to
-train stably.
+train stably. In all, the conditional-mean analysis spans six model families---ARIMA/ARIMAX,
+VAR, MIDAS, the random forest, XGBoost, and the LSTM---plus two daily-input variants (for MIDAS and LSTM) that read the higher-frequency data directly, for eight specifications judged
+against the common drift floor.
 
 \subsection{Conditional-variance models}
 \label{sec:method-var}
@@ -860,23 +874,45 @@ set, isolating any nonlinear gain over the linear HAR-X.
 \subsection{Evaluation protocol and significance tests}
 \label{sec:method-eval}
 
-All models are scored on the same 2023--2026 test window. Point-forecast accuracy is
-measured by RMSE and MAE---the primary metrics, since efficiency is a conditional-mean
-(magnitude) claim---complemented by directional accuracy (DA) and its magnitude-weighted
-form (WDA) for the returns, and by direction-of-change accuracy (DCA) for volatility.
-Effect size relative to the drift is summarised by the Campbell--Thompson out-of-sample
-\(R^2\) \parencite{campbell2008}.
+All models are scored on the same 2023--2026 test window of \(n\) weeks; write \(r_t\) for the
+realised return and \(\hat r_t\) for the forecast. Point-forecast accuracy is measured by
+root-mean-squared and mean-absolute error,
+\begin{equation}
+    \mathrm{RMSE} = \sqrt{\tfrac1n \textstyle\sum_{t=1}^{n} (r_t - \hat r_t)^2}, \qquad
+    \mathrm{MAE}  = \tfrac1n \textstyle\sum_{t=1}^{n} \lvert r_t - \hat r_t\rvert ,
+\end{equation}
+the primary metrics, since efficiency is a conditional-mean (magnitude) claim. The directional
+lens is directional accuracy and its magnitude-weighted form,
+\begin{equation}
+    \mathrm{DA} = \tfrac1n \textstyle\sum_{t=1}^{n}
+        \mathbf{1}\!\left[\operatorname{sign} r_t = \operatorname{sign}\hat r_t\right],
+    \qquad
+    \mathrm{WDA} = \frac{\sum_{t} \lvert r_t\rvert\,
+        \mathbf{1}\!\left[\operatorname{sign} r_t = \operatorname{sign}\hat r_t\right]}
+        {\sum_{t} \lvert r_t\rvert} ,
+\end{equation}
+WDA weighting each correct call by the size of the move, so a missed large week costs more than
+a missed flat one; for volatility, whose target is non-negative, these give way to
+direction-of-change accuracy (DCA) on \(\Delta\log\mathrm{RV}\). Effect size relative to the
+drift is the Campbell--Thompson out-of-sample \(R^2\) \parencite{campbell2008},
+\begin{equation}
+    R^2_{\text{OS}} = 1 - \frac{\sum_{t}(r_t - \hat r_t)^2}{\sum_{t}(r_t - \bar r_t)^2} ,
+\end{equation}
+with \(\bar r_t\) the prevailing-mean drift forecast, so \(R^2_{\text{OS}}>0\) means the model
+beats the random walk out of sample.
 
-Significance rests on three tests. The \textbf{Diebold--Mariano} test of equal predictive
+Significance rests on the following tests. The \textbf{Diebold--Mariano} test of equal predictive
 accuracy \parencite{diebold1995}, with Newey--West variance, compares each model to the
 drift floor; for returns it is reported under squared-error loss (the headline) and
 absolute-error loss (a heavy-tail robustness check), and for volatility under the
 proxy-robust QLIKE loss \parencite{patton2011}, which squared-error DM is too low-powered
 to replace on heavy-tailed realised volatility. The \textbf{Pesaran--Timmermann} test
 \parencite{pesaran1992} is the matching significance test for the directional (DA/WDA)
-reading. Finally, a generalised spectral test \parencite{hong2003} checks the own-history
+reading.
+% TEMP: colour-marked for review — series-level test, may not belong in this model-comparison list
+{\color{red}Finally, a generalised spectral test \parencite{hong2003} checks the own-history
 return series for nonlinear departures from the martingale-difference null that linear
-autocorrelation cannot detect.
+autocorrelation cannot detect.}
 
 Two robustness layers accompany the headline tests: a breakdown by calendar sub-period
 across 2023--2026, to confirm that performance is not driven by a single regime, and a
@@ -978,16 +1014,20 @@ absolute-error loss, the heavy-tail robustness check. The Campbell--Thompson \(R
 tells the effect-size version of the same story: it spans \(+1.8\%\) to \(-0.7\%\) for the
 magnitude-best variants and turns sharply negative for the directionally-selected ones, so on
 average a public-information model forecasts the weekly return no better than its own expanding
-historical mean. The null holds across model classes---the linear ARIMAX, VAR and MIDAS
-regressions, the tree ensembles, and the recurrent network all collapse onto the drift. Because
-the cross-asset returns are themselves public information, this puts even the EXOG base on
-trial, and it too fails: semi-strong-form efficiency is not rejected.
+historical mean. The null hypothesis holds across model classes---the linear ARIMAX, VAR and MIDAS
+regressions, the tree ensembles, and the recurrent network all collapse onto the drift. Every
+feature in the ladder---cross-asset returns, positioning, macro, and sentiment alike---was
+public information at the forecast date, so the whole ladder is one cumulative test of
+semi-strong-form efficiency, and none of it beats the drift: the semi-strong null is not
+rejected.
 
 \subsection{Direction versus magnitude}
 
 A weaker, direction-only signal does surface. Several families call the sign of the weekly
-return more often than the always-up base rate---by the directionally-selected (WDA-best)
-criterion the linear models reach DA \(\approx 0.62\) (Figure~\ref{fig:returns-wda})---and a
+return more often than the drift does: because the prevailing mean of past returns is positive,
+the drift always forecasts an up week, so its directional hit rate is merely the share of weeks
+that rose. By the directionally-selected (WDA-best) criterion the linear models clear that
+bar---DA \(\approx 0.62\) (Figure~\ref{fig:returns-wda})---and a
 Pesaran--Timmermann (PT) test confirms genuine sign-timing in the linear ARIMAX and VAR
 (\(p=0.004\) and \(0.005\)) and in the daily-input MIDAS. But the signal is magnitude-worthless.
 The variants that maximise directional accuracy do so at the expense of point-forecast error:
