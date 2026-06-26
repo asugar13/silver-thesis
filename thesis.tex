@@ -593,8 +593,33 @@ Bollinger \%B (the full list is in Table~\ref{tab:variables})---the standard cha
 toolkit, included to test whether such signals carry predictive content for the return.
 Pure volatility and dispersion indicators are not included: they inform the conditional
 \emph{variance} rather than the conditional mean a return forecast targets, so they carry
-little information for the return. The exact formulas and parameters are in the project
+little information for the return. The exact formulas and windows are tabulated in
+Appendix~\ref{app:tech}; the implementing code is in the project
 repository.\footnote{\url{https://github.com/asugar13/silver-thesis}}
+
+\subsection{Sentiment and attention features}
+\label{sec:data-sentiment}
+
+The volatility chapter (Section~\ref{sec:method-var}) reads each text source through two
+derived signals---how \emph{much} is written (attention) and how \emph{strong} the tone is
+(intensity)---rather than the signed weekly tone the return models use. For a week \(t\) with
+\(n_t\) items (Reddit posts or news articles) and weekly-mean tone \(\bar s_t \in [-1,1]\),
+\begin{equation}
+    \text{attention}_t = \log\!\left(1 + n_t\right), \qquad
+    \text{intensity}_t = \lvert \bar s_t \rvert .
+    \label{eq:attn-int}
+\end{equation}
+Attention is logged because weekly volume is heavily right-skewed (Reddit: median \(\approx
+330\), max \(\approx 9{,}000\) posts); intensity drops the sign because for a volatility
+target it is the \emph{magnitude} of sentiment, not its direction, that should move the
+second moment. Both are formed for Reddit (Twitter-RoBERTa tone) and the paid-news feed
+(FinBERT title tone) and lagged one week. Google Trends adds a third, broad-retail attention
+proxy: the log of Google's search-volume index (SVI) for the query ``silver''---a weekly
+series Google scales to \(0\)--\(100\) over the sample \parencite{da2011}---so
+\(\text{trends}_t = \log(\mathrm{SVI}_t)\), with full 2015--2026 coverage where the news
+feeds are sparse. A
+within-week tone-dispersion measure (the standard deviation of tone) is also constructed but
+enters no ablation rung; it is catalogued in Appendix~\ref{app:data}.
 
 \subsection{Feature frame and split}
 \label{sec:data-frame}
@@ -1187,6 +1212,14 @@ the choices a summary table cannot convey.
     \end{itemize}
     Each as a share of open interest.
 
+    \item \textbf{Business sentiment (PMI)} --- FRED, monthly: a China business-confidence
+    proxy (\texttt{CHNBSCICP02STSAM}), a balance-of-opinion level standing in for industrial
+    demand from silver's largest physical consumer. Unlike the macro block (three pre-lagged
+    publication lags), it enters as a single point-in-time level---the most recent value
+    released by its publication date (a 31-day reporting lag)---taken as the week's last
+    observation and lagged one week by each model, exactly like the gold/silver ratio. It is
+    kept as its own ablation group rather than folded into the US macro set.
+
     \item \textbf{Sentiment} --- Reddit, GDELT, NewsAPI.ai, Google Trends (English-language / worldwide):
     \begin{itemize}[nosep]
         \item Reddit posts (r/WallStreetSilver, r/Silverbugs; via Arctic Shift): retail attention and tone, scored with Twitter-RoBERTa \parencite{loureiro2022}
@@ -1198,15 +1231,44 @@ the choices a summary table cannot convey.
     2017 and has zero-article weeks even inside the test window---so the news series is a
     documented limitation; the paid NewsAPI.ai feed covers the full sample and is the
     cleaner news source, while the volatility chapter (Section~\ref{sec:var}) draws on
-    Reddit, paid news, and Google Trends instead.
+    Reddit, paid news, and Google Trends instead. From each text feed that chapter derives
+    the weekly attention and tone-intensity features of Section~\ref{sec:data-sentiment},
+    plus a within-week tone-dispersion measure (the standard deviation of daily tone)
+    for Reddit and paid news; dispersion is dropped from every ablation rung after
+    exploratory analysis found no correlation with realised volatility.
 
-    \item \textbf{Business sentiment (PMI)} --- FRED, monthly: a China business-confidence
-    proxy (\texttt{CHNBSCICP02STSAM}), a balance-of-opinion level standing in for industrial
-    demand from silver's largest physical consumer. Unlike the macro block (three pre-lagged
-    publication lags), it enters as a single point-in-time level---the most recent value
-    released by its publication date (a 31-day reporting lag)---taken as the week's last
-    observation and lagged one week by each model, exactly like the gold/silver ratio. It is
-    kept as its own ablation group rather than folded into the US macro set.
 \end{itemize}
+
+\subsection{Technical-indicator formulas}
+\label{app:tech}
+
+Every indicator in the TECH group (Section~\ref{sec:data}) is a transform of the weekly
+(W-FRI) silver close \(P_t\), with \(r_t=\log(P_t/P_{t-1})\) the weekly log-return. Write
+\(\mathrm{EMA}_k\) and \(\mathrm{SMA}_k\) for the exponential and simple moving averages of
+span/window \(k\) weeks, \(\sigma_k\) for the rolling \(k\)-week standard deviation, and
+\(\min_k,\max_k\) for the rolling \(k\)-week low and high; RSI uses exponentially-smoothed
+average gains and losses. Each is built raw and lagged one week before use.
+
+\begin{table}[H]
+    \centering
+    \small
+    \renewcommand{\arraystretch}{1.6}
+    \caption{Technical-indicator definitions (weekly silver close \(P_t\)).}
+    \label{tab:tech}
+    \begin{tabular}{l l c}
+        \toprule
+        Indicator & Definition & Window (wk) \\
+        \midrule
+        MACD line         & \(\mathrm{EMA}_{12}(P_t)-\mathrm{EMA}_{26}(P_t)\) & 12,\,26 \\
+        MACD histogram    & \(\mathrm{MACD}_t-\mathrm{EMA}_{9}(\mathrm{MACD}_t)\) & 9 \\
+        RSI               & \(100-\dfrac{100}{1+\mathrm{RS}_t},\ \ \mathrm{RS}_t=\dfrac{\mathrm{EMA}_{14}(\text{gains})}{\mathrm{EMA}_{14}(\text{losses})}\) & 14 \\
+        Momentum          & \(\textstyle\sum_{i=0}^{4} r_{t-i}\) & 5 \\
+        Rate of change    & \(P_t/P_{t-k}-1,\ \ k\in\{13,26,52\}\) & 13,\,26,\,52 \\
+        Price-to-MA       & \(P_t/\mathrm{SMA}_{13}(P_t)-1\) & 13 \\
+        Donchian position & \(\dfrac{2\,(P_t-\min_{52})}{\max_{52}-\min_{52}}-1\) & 52 \\
+        Bollinger \%B     & \(\dfrac{P_t-(\mathrm{SMA}_{20}-2\,\sigma_{20})}{4\,\sigma_{20}}\) & 20 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 \end{document}
