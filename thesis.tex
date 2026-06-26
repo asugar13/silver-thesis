@@ -553,115 +553,37 @@ narratives can collide.
 All models are estimated on one weekly dataset, January 2015 to May 2026, on a common
 Friday-to-Friday (W-FRI) calendar of 591 weeks. Seven data source families are consolidated
 into a single feature frame (Section~\ref{sec:data-frame}); the forecast target throughout
-is the weekly silver log-return \(r_t = \log P_t - \log P_{t-1}\). Table~\ref{tab:variables}
-catalogues every variable---its source, native frequency, and how it enters the
-models---and the rest of this section explains the choices a table cannot convey.
+is the weekly silver log-return \(r_t = \log P_t - \log P_{t-1}\). The information set spans
+seven source families, all observed at the Friday-\(t{-}1\) close and lagged before use
+(Section~\ref{sec:data-frame}):
 
-\begin{table}[H]
-    \centering
-    \small
-    \caption{Variables entering the analysis, by feature group. All features are observed
-    at the Friday-\(t{-}1\) close and lagged one week by each model before use, except the
-    macro block (publication-lagged) and a best-lag ablation set. ``EXOG'' denotes
-    the six cross-asset returns.}
-    \label{tab:variables}
-    \setlength{\tabcolsep}{4.5pt}
-    \begin{tabular}{p{1.9cm} p{4.7cm} l l p{2.8cm}}
-        \toprule
-        Group & Variables & Source & Freq.\ & Entered as \\
-        \midrule
-        Target        & \texttt{silver\_return} & Yahoo Finance & Daily & weekly W-FRI log-return \\
-        AR            & \texttt{silver\_lag1/2/3} & Yahoo Finance & Daily & weekly log-returns, 1--3 wk lags \\
-        Cross-asset (EXOG) & \texttt{gold\_return}, \texttt{copper\_return}, \texttt{usd\_return}, \texttt{sp500\_return}, \texttt{vix\_return}, \texttt{oil\_return} & Yahoo Finance & Daily & weekly log-returns \\
-        Ratio (GS)    & \texttt{gs\_ratio\_z} & Yahoo Finance & Daily & gold/silver ratio, \(z\)-scored on train \\
-        FRED daily    & \texttt{real\_rates\_chg}, \texttt{breakeven\_chg}, \texttt{jobless\_chg} & FRED & Daily/Wk & weekly change \\
-        Positioning (COT) & \texttt{cot\_mm\_net\_pct}, \texttt{cot\_comm\_net\_pct} & CFTC & Weekly & net position / open interest \\
-        Sentiment     & \texttt{reddit\_sentiment}, \texttt{news\_sentiment} & Reddit, GDELT & Daily & weekly mean of RoBERTa / FinBERT scores \\
-        Paid news (NEWS\_PAID) & \texttt{news\_paid\_sentiment\_title} & NewsAPI.ai & Daily & weekly mean of FinBERT title scores \\
-        Technical (TECH) & \texttt{macd\_line}, \texttt{macd\_hist}, \texttt{rsi\_14w}, \texttt{mom\_5w}, \texttt{roc\_13/26/52w}, \texttt{price\_ma13w}, \texttt{donchian\_52w}, \texttt{bb\_pct\_b} & Yahoo Finance & Weekly & directional momentum / trend indicators \\
-        Macro (MACRO) & \texttt{cpi}, \texttt{fed\_funds}, \texttt{ind\_prod}, \texttt{m2} & FRED & Monthly & 3 publication-availability lags each \\
-        PMI           & \texttt{china\_pmi\_proxy} & FRED & Monthly & latest published monthly level \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-\subsection{Sources}
-
-\begin{itemize}
-    \item \textbf{Market prices} --- Yahoo Finance, daily. The three metals are global
-    benchmarks; the equity, dollar, volatility, and oil series are US-centric:
-    \begin{itemize}[nosep]
-        \item silver (\texttt{SI=F}): COMEX front-month futures, the global silver benchmark --- the forecast target
-        \item gold (\texttt{GC=F}): silver's closest monetary substitute and dominant co-mover
-        \item copper (\texttt{HG=F}): industrial-demand proxy (about half of silver demand is industrial)
-        \item US dollar index (\texttt{DX-Y.NYB}): the dollar against a basket of major currencies; metals are dollar-priced, so a stronger dollar weighs on silver
-        \item S\&P~500 (\texttt{\textasciicircum GSPC}): US large-cap equities --- broad risk appetite
-        \item VIX (\texttt{\textasciicircum VIX}): 30-day implied volatility from S\&P~500 options --- the market's fear / risk-off gauge
-        \item oil (\texttt{CL=F}): WTI crude, the US benchmark --- commodity-complex and inflation proxy
-    \end{itemize}
-    The six cross-asset weekly log-returns form the EXOG set \parencite{batten2010,zhang2010}.
-
-    \item \textbf{Rates and inflation} --- FRED, US, daily:
-    \begin{itemize}[nosep]
-        \item 10-year TIPS real yield (\texttt{DFII10}): the inflation-adjusted return on
-        10-year US Treasury bonds---the ``real'' interest rate. Silver pays no income, so a
-        higher real yield makes interest-bearing bonds the more attractive store of value
-        and tends to pull the metal down.
-        \item 10-year breakeven inflation (\texttt{T10YIE}): the average inflation rate
-        markets expect over the next decade (the gap between ordinary and
-        inflation-protected 10-year Treasury yields). Silver is held as an inflation hedge,
-        so rising expectations can support it.
-        \item initial jobless claims (\texttt{ICSA}): the number of new US
-        unemployment-benefit filings each week---a timely read on the labour market and the
-        economy's direction, with rising claims signalling a weakening economy.
-    \end{itemize}
-    Each enters as a weekly change.
-
-    \item \textbf{Macroeconomic} --- FRED, US, monthly:
-    \begin{itemize}[nosep]
-        \item Consumer Price Index (\texttt{CPIAUCSL}): the headline measure of realised US
-        consumer-price inflation
-        \item federal funds rate (\texttt{FEDFUNDS}): the Fed's overnight policy interest
-        rate, which drives real yields and the dollar
-        \item industrial production (\texttt{INDPRO}): the Fed's index of US factory, mining,
-        and utility output; about half of silver demand is industrial, so stronger output
-        lifts physical demand for the metal
-        \item M2 money supply (\texttt{M2SL}): a broad measure of money in circulation (cash
-        plus bank deposits and near-money); rapid growth signals future inflation, which
-        tends to lift hard assets like silver
-    \end{itemize}
-    These enter under a point-in-time availability rule rather than a naive shift: a value
-    is visible only once it would actually have been released, with three publication lags
-    kept per series.
-
-    \item \textbf{Positioning} --- CFTC (US) Commitments of Traders, COMEX silver, weekly:
-    \begin{itemize}[nosep]
-        \item managed-money net positioning: speculative (fund) sentiment
-        \item commercial net positioning: hedger and producer positioning
-    \end{itemize}
-    Each as a share of open interest.
-
-    \item \textbf{Sentiment} --- Reddit, GDELT, NewsAPI.ai, Google Trends (English-language / worldwide):
-    \begin{itemize}[nosep]
-        \item Reddit posts (r/WallStreetSilver, r/Silverbugs; via Arctic Shift): retail attention and tone, scored with Twitter-RoBERTa \parencite{loureiro2022}
-        \item GDELT news headlines: global media tone, scored with FinBERT \parencite{araci2019}
-        \item NewsAPI.ai (Event Registry) paid news: reputable English-language sources, from 2015 and at least one article per week, scored with FinBERT \parencite{araci2019} on the article title
-        \item Google Trends ``silver'' search interest: worldwide retail attention (volatility chapter only)
-    \end{itemize}
-    Each text source is averaged to a weekly mean. GDELT is sparse---it begins only in late
-    2017 and has zero-article weeks even inside the test window---so the news series is a
-    documented limitation; the paid NewsAPI.ai feed covers the full sample and is the
-    cleaner news source, while the volatility chapter (Section~\ref{sec:var}) relies on
-    Reddit and Google Trends instead.
-
-    \item \textbf{Business sentiment (PMI)} --- FRED, monthly: a China business-confidence
-    proxy (\texttt{CHNBSCICP02STSAM}), a balance-of-opinion level standing in for industrial
-    demand from silver's largest physical consumer. Unlike the macro block (three pre-lagged
-    publication lags), it enters as a single point-in-time level---the most recent value
-    released by its publication date (a 31-day reporting lag)---taken as the week's last
-    observation and lagged one week by each model, exactly like the gold/silver ratio. It is
-    kept as its own ablation group rather than folded into the US macro set.
+\begin{itemize}[nosep]
+    \item \textbf{Market prices} (Yahoo Finance, daily) --- silver, the forecast target
+    (COMEX front-month \texttt{SI=F}), and the six cross-asset benchmarks gold, copper, the
+    US dollar index, the S\&P~500, the VIX, and oil, entered as weekly log-returns (the EXOG
+    set) \parencite{batten2010,zhang2010}.
+    \item \textbf{Rates and inflation} (FRED, daily/weekly) --- the 10-year TIPS real yield,
+    10-year breakeven inflation, and initial jobless claims, each as a weekly change.
+    \item \textbf{Macroeconomic} (FRED, monthly) --- CPI, the federal funds rate, industrial
+    production, and M2, entered under a point-in-time publication-availability rule.
+    \item \textbf{Positioning} (CFTC Commitments of Traders, weekly) --- managed-money and
+    commercial net positioning on COMEX silver, as a share of open interest.
+    \item \textbf{Sentiment} (Reddit, GDELT, NewsAPI.ai, Google Trends) --- retail and news
+    tone and attention, scored with Twitter-RoBERTa for Reddit \parencite{loureiro2022} and
+    FinBERT for news \parencite{araci2019}, averaged to a weekly mean.
+    \item \textbf{Business sentiment (PMI)} (FRED, monthly) --- a China business-confidence
+    proxy for industrial demand, entered as a point-in-time level.
 \end{itemize}
+
+The two text-news feeds differ in coverage: GDELT is sparse---it begins only in late 2017
+and has zero-article weeks even inside the test window, a documented limitation---while the
+paid NewsAPI.ai feed spans the full sample and is the cleaner news source; the volatility
+chapter (Section~\ref{sec:var}) draws its attention and sentiment signals from Reddit, paid
+news, and Google Trends instead.
+Appendix~\ref{app:data} catalogues every variable (Table~\ref{tab:variables}) and details
+each individual series.
+
+% Full variable catalogue (Table~\ref{tab:variables}) and per-source detail relocated to Appendix~\ref{app:data}.
 
 \subsection{Technical indicators}
 
@@ -838,9 +760,9 @@ summed daily squared returns,
 a model-free volatility proxy. Its predictors are the heterogeneous-autoregressive (HAR)
 lags---1-week, monthly (4-week mean), and quarterly (12-week mean) trailing
 realised volatility---optionally extended with the six cross-asset realised volatilities,
-Reddit attention and sentiment-intensity measures, and Google Trends search interest; the
-last three form the volatility chapter's sentiment ablation, and Google Trends enters here
-only, not in the conditional-mean models.
+Reddit attention and sentiment-intensity measures, paid-news attention and intensity, and
+Google Trends search interest; these added blocks form the volatility chapter's HAR-X
+ablation rungs, and Google Trends enters here only, not in the conditional-mean models.
 
 \textbf{GARCH.} A GARCH(1,1) model \parencite{engle1982,bollerslev1986}, in which the
 return is a constant mean plus a conditionally heteroscedastic shock,
@@ -864,9 +786,9 @@ and long horizons; HAR-X augments that base with an exogenous block \(z_{t-1}\),
 \end{equation}
 where \(\mathrm{RV}^{(w)}, \mathrm{RV}^{(m)}, \mathrm{RV}^{(q)}\) are the trailing 1-week,
 4-week, and 12-week mean realised volatilities, and \(z_{t-1}\) is the added predictor
-block---the six cross-asset realised volatilities, Reddit attention and intensity, or
-Google Trends, entered as separate ablation rungs (\(z_{t-1}=\varnothing\) recovers
-HAR-RV). Both are estimated by OLS.
+block---the six cross-asset realised volatilities, Reddit attention and intensity,
+paid-news attention and intensity, or Google Trends, entered as separate ablation rungs
+(\(z_{t-1}=\varnothing\) recovers HAR-RV). Both are estimated by OLS.
 
 \textbf{Tree ensembles.} Random forest and XGBoost on the HAR-plus-cross-asset feature
 set, isolating any nonlinear gain over the linear HAR-X.
@@ -1169,5 +1091,122 @@ signal fails to replicate across model classes.
 % ─────────────────────────────────────────────────────────────────────────────
 \newpage
 \printbibliography[heading=bibintoc]
+
+% ═════════════════════════════════════════════════════════════════════════════
+\appendix
+% ═════════════════════════════════════════════════════════════════════════════
+
+\section{Data appendix}
+\label{app:data}
+
+Table~\ref{tab:variables} catalogues every variable entering the analysis---its source,
+native frequency, and how it enters the models. The notes below detail each source family:
+the choices a summary table cannot convey.
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{Variables entering the analysis, by feature group. All features are observed
+    at the Friday-\(t{-}1\) close and lagged one week by each model before use, except the
+    macro block (publication-lagged) and a best-lag ablation set. ``EXOG'' denotes
+    the six cross-asset returns.}
+    \label{tab:variables}
+    \setlength{\tabcolsep}{4.5pt}
+    \begin{tabular}{p{1.9cm} p{4.7cm} l l p{2.8cm}}
+        \toprule
+        Group & Variables & Source & Freq.\ & Entered as \\
+        \midrule
+        Target        & \texttt{silver\_return} & Yahoo Finance & Daily & weekly W-FRI log-return \\
+        AR            & \texttt{silver\_lag1/2/3} & Yahoo Finance & Daily & weekly log-returns, 1--3 wk lags \\
+        Cross-asset (EXOG) & \texttt{gold\_return}, \texttt{copper\_return}, \texttt{usd\_return}, \texttt{sp500\_return}, \texttt{vix\_return}, \texttt{oil\_return} & Yahoo Finance & Daily & weekly log-returns \\
+        Ratio (GS)    & \texttt{gs\_ratio\_z} & Yahoo Finance & Daily & gold/silver ratio, \(z\)-scored on train \\
+        FRED daily    & \texttt{real\_rates\_chg}, \texttt{breakeven\_chg}, \texttt{jobless\_chg} & FRED & Daily/Wk & weekly change \\
+        Positioning (COT) & \texttt{cot\_mm\_net\_pct}, \texttt{cot\_comm\_net\_pct} & CFTC & Weekly & net position / open interest \\
+        Sentiment     & \texttt{reddit\_sentiment}, \texttt{news\_sentiment} & Reddit, GDELT & Daily & weekly mean of RoBERTa / FinBERT scores \\
+        Paid news (NEWS\_PAID) & \texttt{news\_paid\_sentiment\_title} & NewsAPI.ai & Daily & weekly mean of FinBERT title scores \\
+        Technical (TECH) & \texttt{macd\_line}, \texttt{macd\_hist}, \texttt{rsi\_14w}, \texttt{mom\_5w}, \texttt{roc\_13/26/52w}, \texttt{price\_ma13w}, \texttt{donchian\_52w}, \texttt{bb\_pct\_b} & Yahoo Finance & Weekly & directional momentum / trend indicators \\
+        Macro (MACRO) & \texttt{cpi}, \texttt{fed\_funds}, \texttt{ind\_prod}, \texttt{m2} & FRED & Monthly & 3 publication-availability lags each \\
+        PMI           & \texttt{china\_pmi\_proxy} & FRED & Monthly & latest published monthly level \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Sources}
+
+\begin{itemize}
+    \item \textbf{Market prices} --- Yahoo Finance, daily. The three metals are global
+    benchmarks; the equity, dollar, volatility, and oil series are US-centric:
+    \begin{itemize}[nosep]
+        \item silver (\texttt{SI=F}): COMEX front-month futures, the global silver benchmark --- the forecast target
+        \item gold (\texttt{GC=F}): silver's closest monetary substitute and dominant co-mover
+        \item copper (\texttt{HG=F}): industrial-demand proxy (about half of silver demand is industrial)
+        \item US dollar index (\texttt{DX-Y.NYB}): the dollar against a basket of major currencies; metals are dollar-priced, so a stronger dollar weighs on silver
+        \item S\&P~500 (\texttt{\textasciicircum GSPC}): US large-cap equities --- broad risk appetite
+        \item VIX (\texttt{\textasciicircum VIX}): 30-day implied volatility from S\&P~500 options --- the market's fear / risk-off gauge
+        \item oil (\texttt{CL=F}): WTI crude, the US benchmark --- commodity-complex and inflation proxy
+    \end{itemize}
+    The six cross-asset weekly log-returns form the EXOG set \parencite{batten2010,zhang2010}.
+
+    \item \textbf{Rates and inflation} --- FRED, US, daily:
+    \begin{itemize}[nosep]
+        \item 10-year TIPS real yield (\texttt{DFII10}): the inflation-adjusted return on
+        10-year US Treasury bonds---the ``real'' interest rate. Silver pays no income, so a
+        higher real yield makes interest-bearing bonds the more attractive store of value
+        and tends to pull the metal down.
+        \item 10-year breakeven inflation (\texttt{T10YIE}): the average inflation rate
+        markets expect over the next decade (the gap between ordinary and
+        inflation-protected 10-year Treasury yields). Silver is held as an inflation hedge,
+        so rising expectations can support it.
+        \item initial jobless claims (\texttt{ICSA}): the number of new US
+        unemployment-benefit filings each week---a timely read on the labour market and the
+        economy's direction, with rising claims signalling a weakening economy.
+    \end{itemize}
+    Each enters as a weekly change.
+
+    \item \textbf{Macroeconomic} --- FRED, US, monthly:
+    \begin{itemize}[nosep]
+        \item Consumer Price Index (\texttt{CPIAUCSL}): the headline measure of realised US
+        consumer-price inflation
+        \item federal funds rate (\texttt{FEDFUNDS}): the Fed's overnight policy interest
+        rate, which drives real yields and the dollar
+        \item industrial production (\texttt{INDPRO}): the Fed's index of US factory, mining,
+        and utility output; about half of silver demand is industrial, so stronger output
+        lifts physical demand for the metal
+        \item M2 money supply (\texttt{M2SL}): a broad measure of money in circulation (cash
+        plus bank deposits and near-money); rapid growth signals future inflation, which
+        tends to lift hard assets like silver
+    \end{itemize}
+    These enter under a point-in-time availability rule rather than a naive shift: a value
+    is visible only once it would actually have been released, with three publication lags
+    kept per series.
+
+    \item \textbf{Positioning} --- CFTC (US) Commitments of Traders, COMEX silver, weekly:
+    \begin{itemize}[nosep]
+        \item managed-money net positioning: speculative (fund) sentiment
+        \item commercial net positioning: hedger and producer positioning
+    \end{itemize}
+    Each as a share of open interest.
+
+    \item \textbf{Sentiment} --- Reddit, GDELT, NewsAPI.ai, Google Trends (English-language / worldwide):
+    \begin{itemize}[nosep]
+        \item Reddit posts (r/WallStreetSilver, r/Silverbugs; via Arctic Shift): retail attention and tone, scored with Twitter-RoBERTa \parencite{loureiro2022}
+        \item GDELT news headlines: global media tone, scored with FinBERT \parencite{araci2019}
+        \item NewsAPI.ai (Event Registry) paid news: reputable English-language sources, from 2015 and at least one article per week, scored with FinBERT \parencite{araci2019} on the article title
+        \item Google Trends ``silver'' search interest: worldwide retail attention (volatility chapter only)
+    \end{itemize}
+    Each text source is averaged to a weekly mean. GDELT is sparse---it begins only in late
+    2017 and has zero-article weeks even inside the test window---so the news series is a
+    documented limitation; the paid NewsAPI.ai feed covers the full sample and is the
+    cleaner news source, while the volatility chapter (Section~\ref{sec:var}) draws on
+    Reddit, paid news, and Google Trends instead.
+
+    \item \textbf{Business sentiment (PMI)} --- FRED, monthly: a China business-confidence
+    proxy (\texttt{CHNBSCICP02STSAM}), a balance-of-opinion level standing in for industrial
+    demand from silver's largest physical consumer. Unlike the macro block (three pre-lagged
+    publication lags), it enters as a single point-in-time level---the most recent value
+    released by its publication date (a 31-day reporting lag)---taken as the week's last
+    observation and lagged one week by each model, exactly like the gold/silver ratio. It is
+    kept as its own ablation group rather than folded into the US macro set.
+\end{itemize}
 
 \end{document}
