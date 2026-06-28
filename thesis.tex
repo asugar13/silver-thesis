@@ -527,9 +527,9 @@ The measurement choice is therefore grounded in the literature: domain matters, 
 language is not the same as financial-news language.
 
 The evidence on Reddit-style attention is mixed but highly relevant. Studies of WallStreetBets
-and GameStop show that Reddit activity can precede or accompany extreme retail-driven market
-episodes, but newer evidence often finds that raw activity, comment volume, and Google Trends
-are stronger signals than sentiment polarity alone. A focused literature search did not
+and GameStop \parencite{lyocsa2022} show that Reddit activity can precede or accompany extreme
+retail-driven market episodes, but newer evidence often finds that raw activity, comment volume,
+and Google Trends are stronger signals than sentiment polarity alone. A focused literature search did not
 surface a mature, peer-reviewed silver-only equivalent; the closest evidence comes from
 broader equity, Reddit, and volatility studies. That absence is useful: it creates the gap
 this thesis fills by testing Reddit and news sentiment directly in silver, separating tone
@@ -617,9 +617,7 @@ second moment. Both are formed for Reddit (Twitter-RoBERTa tone) and the paid-ne
 proxy: the log of Google's search-volume index (SVI) for the query ``silver''---a weekly
 series Google scales to \(0\)--\(100\) over the sample \parencite{da2011}---so
 \(\text{trends}_t = \log(\mathrm{SVI}_t)\), with full 2015--2026 coverage where the news
-feeds are sparse. A
-within-week tone-dispersion measure (the standard deviation of tone) is also constructed but
-enters no ablation rung; it is catalogued in Appendix~\ref{app:data}.
+feeds are sparse.
 
 \subsection{Feature frame and split}
 \label{sec:data-frame}
@@ -724,10 +722,12 @@ regressors,
 \begin{equation}
     r_t = \mu + \beta' x_{t-1} + \varepsilon_t ,
 \end{equation}
-and supplies the linear semi-strong test.
-{\color{red}As a complementary series-level weak-form diagnostic, the generalised
+where \(x_{t-1}\) collects the lagged exogenous groups added cumulatively along the ablation
+ladder above (the gold/silver ratio, technical indicators, FRED daily and monthly macro, the
+PMI proxy, COT positioning and the sentiment feeds); this supplies the linear semi-strong test.
+As a complementary series-level weak-form diagnostic, the generalised
 spectral test of \textcite{hong2003} checks for nonlinear own-history departures from
-the martingale-difference null that linear autocorrelation diagnostics may miss.}
+the martingale-difference null that linear autocorrelation diagnostics may miss.
 
 \textbf{VAR.} A vector autoregression of silver and the cross-asset returns, stacked in a
 vector \(y_t\), with lag order \(p\) chosen by AIC,
@@ -735,7 +735,7 @@ vector \(y_t\), with lag order \(p\) chosen by AIC,
     y_t = c + \sum_{i=1}^{p} A_i\, y_{t-i} + \varepsilon_t ,
 \end{equation}
 which captures linear feedback among the assets; Granger-causality and impulse-response
-diagnostics are reported descriptively.
+diagnostics accompany it descriptively in the project repository.
 
 \textbf{MIDAS.} Mixed-data-sampling regressions keep a predictor's recent high-frequency
 path instead of collapsing it to a single weekly number, and learn how much each lag
@@ -768,8 +768,9 @@ multi-frequency model adding the six cross-asset returns at 20 daily lags
 \textbf{Random forest and gradient boosting.} Nonlinear ensembles that admit thresholds
 and interactions among the lagged features---a random forest \parencite{breiman2001} and
 gradient-boosted trees, XGBoost \parencite{chen2016}. Hyperparameters are grid-searched per
-ablation rung by blocked time-series cross-validation on train-plus-validation, and the
-model is re-fit every four weeks in the walk-forward.
+ablation rung on the training-plus-validation data using time-series cross-validation---contiguous
+expanding folds that always validate on weeks \emph{after} those used to fit, so no future
+information leaks into tuning---and the model is re-fit every four weeks in the walk-forward.
 
 \textbf{LSTM.} A long short-term memory recurrent network \parencite{hochreiter1997} that
 reads a fixed window of recent weeks and learns its own representation of the past; a
@@ -789,8 +790,11 @@ against the common drift floor.
 
 The second-moment analysis models weekly realised volatility (\(\mathrm{RV}_t\),
 Eq.~\ref{eq:rv} in Section~\ref{sec:method-target}). Its predictors are the heterogeneous-autoregressive (HAR)
-lags---1-week, monthly (4-week mean), and quarterly (12-week mean) trailing
-realised volatility---optionally extended with the six cross-asset realised volatilities,
+lags---1-week, monthly (4-week mean), and quarterly (12-week mean) trailing realised
+volatility---the three horizons that, in Corsi's heterogeneous-market account
+\parencite{corsi2009}, proxy short-, medium-, and long-horizon traders and together reproduce
+volatility's long-memory persistence parsimoniously. They are
+optionally extended with the six cross-asset realised volatilities,
 Reddit attention and sentiment-intensity measures, paid-news attention and intensity, and
 Google Trends search interest; these added blocks form the volatility chapter's HAR-X
 ablation rungs, and Google Trends enters here only, not in the conditional-mean models.
@@ -845,8 +849,9 @@ lens is directional accuracy and its magnitude-weighted form,
         {\sum_{t} \lvert r_t\rvert} ,
 \end{equation}
 WDA weighting each correct call by the size of the move, so a missed large week costs more than
-a missed flat one; for volatility, whose target is non-negative, these give way to
-direction-of-change accuracy (DCA) on \(\Delta\log\mathrm{RV}\). Effect size relative to the
+a missed flat one. Because the volatility target is non-negative, DA and WDA do not apply to it;
+the volatility chapter instead scores direction with direction-of-change accuracy (DCA)---whether
+the model correctly called the rise or fall in \(\log\mathrm{RV}\). Effect size relative to the
 drift is the Campbell--Thompson out-of-sample \(R^2\) \parencite{campbell2008},
 \begin{equation}
     R^2_{\text{OS}} = 1 - \frac{\sum_{t}(r_t - \hat r_t)^2}{\sum_{t}(r_t - \bar r_t)^2} ,
@@ -860,8 +865,9 @@ variance, compares each model to its
 floor---the drift for returns, the na\"ive \(\mathrm{RV}_{t-1}\) random walk for
 volatility. For returns it is reported under squared-error loss (the headline) and
 absolute-error loss (a heavy-tail robustness check), and for volatility under the
-proxy-robust QLIKE loss \parencite{patton2011}, which squared-error DM is too low-powered
-to replace on heavy-tailed realised volatility. The \textbf{Pesaran--Timmermann} test
+QLIKE loss \parencite{patton2011}---robust, like squared error, to the noise in the
+realised-volatility proxy, but far better powered than squared-error DM on heavy-tailed RV,
+where a handful of extreme weeks swamp the loss differential. The \textbf{Pesaran--Timmermann} test
 \parencite{pesaran1992} is the matching significance test for the directional (DA/WDA)
 reading.
 
@@ -893,10 +899,7 @@ martingale-difference null at every lag order tried (bootstrap \(p \approx 0.90\
 for \(p \in \{5,10,20\}\)). The conditional mean is therefore unpredictable from past returns
 against both linear and nonlinear alternatives, while the same diagnostics strongly reject
 independence in the \emph{squared} returns (\(p \approx 0\))---the predictable structure is
-confined to the variance, not the mean. This series-level verdict anticipates the
-model-based floor: the AIC grid selects \(\mathrm{ARIMA}(0,0,0)\), the drift itself, so the
-best own-history model coincides with the random walk and no own-history forecast improves
-on it out of sample.
+confined to the variance, not the mean.
 
 The forecasting models confirm this. The AIC search over own-history ARIMA orders selects
 \(\mathrm{ARIMA}(0,0,0)\) outright, so the best linear own-history forecast \emph{is} the
@@ -913,7 +916,7 @@ the gold/silver ratio, monthly macro and the China PMI proxy, daily FRED indicat
 positioning, and Reddit, GDELT and paid-news sentiment---with the tree ensembles and the LSTM
 free to combine them nonlinearly. The spread is strikingly tight: every family lands within
 about one percentage point of the drift's 5.19\% weekly RMSE, and the best of them---an
-XGBoost on the cross-asset returns plus paid-news sentiment---improves on the drift by all of
+XGBoost on the cross-asset returns plus paid-news sentiment---improves on the drift by just
 0.05 points (\(R^2_{\text{OS}}=+1.8\%\)). Figure~\ref{fig:returns-rmse} shows the same picture:
 the bars sit on the drift floor.
 
@@ -964,10 +967,14 @@ and both selection criteria---sixteen family-selections in total---not one beats
 a DM test (squared-error loss; the smallest \(p\) is 0.43), and the verdict is unchanged under
 absolute-error loss, the heavy-tail robustness check. The Campbell--Thompson \(R^2_{\text{OS}}\)
 tells the effect-size version of the same story: it spans \(+1.8\%\) to \(-0.7\%\) for the
-magnitude-best variants and turns sharply negative for the directionally-selected ones, so on
+magnitude-best variants and turns sharply negative for the directionally-selected variants, so on
 average a public-information model forecasts the weekly return no better than its own expanding
-historical mean. The null hypothesis holds across model classes---the linear ARIMAX, VAR and MIDAS
-regressions, the tree ensembles, and the recurrent network all collapse onto the drift. Every
+historical mean. The null hypothesis cannot be rejected for any model class---the linear ARIMAX,
+VAR and MIDAS regressions, the tree ensembles, and the recurrent network all collapse onto the
+drift. That model classes with such different inductive biases---a linear regression, a tree
+ensemble, a recurrent network---converge on the same drift-equivalent forecast is a benign
+instance of the model multiplicity \textcite{breiman2001} describes: when the conditional mean
+carries no signal, the choice among well-fit model forms is immaterial. Every
 feature in the ladder---cross-asset returns, positioning, macro, and sentiment alike---was
 public information at the forecast date, so the whole ladder is one cumulative test of
 semi-strong-form efficiency, and none of it beats the drift: the semi-strong null is not
@@ -987,8 +994,8 @@ they carry negative \(R^2_{\text{OS}}\) (VAR's WDA-best loses 14\% to the drift)
 test. It is also fragile---concentrated in the linear models and the post-hoc best-selected
 variants, while across the full ablation ladders of the nonlinear families it appears at no
 more than the chance rate (one of 38 random-forest variants, none of 38 for XGBoost). We read
-it as at most a heavily-caveated footnote, consistent with the adaptive-markets view of
-\textcite{lo2004} rather than as evidence against efficiency in the conditional mean.
+it as consistent with the adaptive-markets view of \textcite{lo2004}---a weak, episodic signal,
+not evidence against efficiency in the conditional mean.
 
 \begin{figure}[htbp]
     \centering
@@ -999,6 +1006,33 @@ it as at most a heavily-caveated footnote, consistent with the adaptive-markets 
     RMSE (Table~\ref{tab:returns-leaderboard}), so the directional edge does not translate into
     magnitude accuracy.}
     \label{fig:returns-wda}
+\end{figure}
+
+That adaptive-markets reading is itself testable, and two structural checks bear it out. A rolling
+52-week Pesaran--Timmermann test of an expanding-window directional forecast (built from the same
+COT and paid-news signals) is insignificant pooled over the sample (\(p\approx0.15\)), yet clears
+\(p<0.05\) in isolated 2021, 2022, 2024 and 2025 windows and is flat elsewhere---the signal
+switches on and off rather than holding steady. A two-regime Markov-switching regression makes the
+point structurally: it separates a long \emph{calm} regime (spells of \(\approx70\) weeks) from
+short \emph{turbulent} bursts (\(\approx12\) weeks, six times the variance), and the paid-news
+coefficient is an order of magnitude larger---and marginally significant
+(\(p\approx0.08\))---inside the turbulent regime than the calm one
+(Figure~\ref{fig:regime}). Directional predictability is therefore intermittent and regime-bound,
+not constant: the adaptive-markets signature in structural form. The effect nonetheless stays
+marginal and magnitude-worthless, so it sharpens the footnote without overturning the
+efficiency verdict.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/regime_efficiency.png}
+    \caption{Regime-dependent directional predictability. \emph{(A)} The rolling 52-week
+    Pesaran--Timmermann \(p\)-value of the COT\,+\,paid-news directional forecast dips below
+    significance only in clusters (notably 2022 and 2024--25), shaded where a two-regime
+    Markov-switching model places the high-variance \emph{turbulent} state. \emph{(B)} The smoothed
+    turbulent-regime probability tracks the volatility bursts---the 2020 COVID crash, the 2021
+    squeeze, and the 2025--26 run-up. The weak directional signal concentrates in those turbulent
+    regimes rather than holding across the calm majority of the sample.}
+    \label{fig:regime}
 \end{figure}
 
 \subsection{Robustness}
@@ -1037,9 +1071,9 @@ lags---beats the na\"ive \(\mathrm{RV}_{t-1}\) floor out of sample
 (Table~\ref{tab:volatility-leaderboard}). HAR-RV cuts the na\"ive
 mean-squared error by roughly a third (\(R^2_{\text{OS}}=0.29\) against the RV mean) and calls
 the direction of the weekly volatility change in 71\% of test weeks; GARCH and the trees land
-in the same band (\(R^2_{\text{OS}}=0.26\)--\(0.32\), DCA \(0.68\)--\(0.71\)). The na\"ive
-forecast, by contrast, has a negative out-of-sample \(R^2\) and zero direction-of-change
-accuracy by construction. Figure~\ref{fig:volatility-fit} (Appendix~\ref{app:figures}) shows
+in the same band (\(R^2_{\text{OS}}=0.26\)--\(0.32\), DCA \(0.68\)--\(0.71\)), while the na\"ive
+floor's \(R^2_{\text{OS}}\) is negative (and its direction-of-change accuracy zero by
+construction). Figure~\ref{fig:volatility-fit} (Appendix~\ref{app:figures}) shows
 the HAR forecast tracking the realised series across the full window---calm bands and run-ups
 alike.
 
@@ -1074,8 +1108,8 @@ alike.
 Significance depends on the loss. Under the proxy-robust QLIKE loss every model significantly
 beats the na\"ive floor (Diebold--Mariano \(p<0.01\) throughout); under squared-error loss the
 same comparisons are ties (\(p\approx 0.2\)--\(0.3\)). This is not a contradiction but a power
-problem: realised volatility is heavy-tailed, so a handful of extreme weeks---chiefly the 2026
-spike---dominate the squared-error differential and inflate its variance, which is why QLIKE
+problem: realised volatility is heavy-tailed, so a handful of extreme weeks---chiefly the
+late-January 2026 spike---dominate the squared-error differential and inflate its variance, which is why QLIKE
 is the headline test (Section~\ref{sec:method-eval}). The consistent reading is that silver's
 weekly volatility carries a strong, persistent, statistically detectable own-history
 signal---in sharp contrast to its return.
@@ -1123,7 +1157,7 @@ block of the next section is the only augmentation that earns its place.
         \(+\)Reddit attention  & 3.191 & 0.299 & 0.707 & $-2.60^{**}$   & $-1.92^{\dagger}$ \\
         \(+\)Reddit sentiment  & 3.195 & 0.297 & 0.713 & $-3.36^{***}$  & $-2.61^{**}$  \\
         \(+\)Reddit (both)     & 3.191 & 0.299 & 0.718 & $-3.01^{**}$   & $-2.20^{*}$   \\
-        \(+\)Trends            & 3.156 & 0.314 & 0.701 & $-0.01$        & $-1.90^{\dagger}$ \\
+        \(+\)Google Trends     & 3.156 & 0.314 & 0.701 & $-0.01$        & $-1.90^{\dagger}$ \\
         \(+\)Paid attention    & 3.172 & 0.307 & 0.718 & $-3.33^{***}$  & $-2.41^{*}$   \\
         \(+\)Paid sentiment    & 3.205 & 0.293 & 0.701 & $+1.44$        & $+0.06$       \\
         \(+\)Paid (both)       & 3.164 & 0.311 & 0.718 & $-2.68^{**}$   & $-2.17^{*}$   \\
@@ -1135,7 +1169,7 @@ block of the next section is the only augmentation that earns its place.
         \(+\)Reddit attention  & 3.249 & 0.273 & 0.695 & $+1.97^{*}$    & $+0.98$       \\
         \(+\)Reddit sentiment  & 3.189 & 0.300 & 0.695 & $+0.75$        & $+0.88$       \\
         \(+\)Reddit (both)     & 3.179 & 0.304 & 0.701 & $+1.72^{\dagger}$ & $+0.43$    \\
-        \(+\)Trends            & 3.147 & 0.318 & 0.707 & $-0.78$        & $-0.27$       \\
+        \(+\)Google Trends     & 3.147 & 0.318 & 0.707 & $-0.78$        & $-0.27$       \\
         \(+\)Paid attention    & 3.133 & 0.324 & 0.684 & $+0.23$        & $-0.87$       \\
         \(+\)Paid sentiment    & 3.130 & 0.325 & 0.713 & $-1.54$        & $-1.56$       \\
         \(+\)Paid (both)       & 3.102 & 0.337 & 0.684 & $-0.34$        & $-1.37$       \\
@@ -1147,7 +1181,7 @@ block of the next section is the only augmentation that earns its place.
         \(+\)Reddit attention  & 3.099 & 0.339 & 0.684 & $-2.36^{*}$    & $-2.07^{*}$   \\
         \(+\)Reddit sentiment  & 3.194 & 0.298 & 0.707 & $-2.44^{*}$    & $-1.83^{\dagger}$ \\
         \(+\)Reddit (both)     & 3.170 & 0.308 & 0.707 & $-0.74$        & $-1.29$       \\
-        \(+\)Trends            & 3.255 & 0.270 & 0.667 & $-1.83^{\dagger}$ & $-0.76$    \\
+        \(+\)Google Trends     & 3.255 & 0.270 & 0.667 & $-1.83^{\dagger}$ & $-0.76$    \\
         \(+\)Paid attention    & 3.205 & 0.292 & 0.695 & $-2.20^{*}$    & $-1.88^{\dagger}$ \\
         \(+\)Paid sentiment    & 3.090 & 0.342 & 0.678 & $-2.29^{*}$    & $-1.53$       \\
         \(+\)Paid (both)       & 3.210 & 0.290 & 0.684 & $-1.68^{\dagger}$ & $-1.20$    \\
@@ -1160,9 +1194,8 @@ block of the next section is the only augmentation that earns its place.
 % HAR+Attention / sentiment ablation; small-but-significant effect; permutation importance.
 
 The sentiment and attention ablation (Table~\ref{tab:har-ablation}) asks an incremental
-question within each model
-family: does adding a public-information block improve on the same estimator using
-only HAR realised-volatility lags? The answer is clearest for the linear HAR
+question: does adding a public-information block improve on the same estimator (HAR, the random
+forest, or XGBoost) using only its HAR realised-volatility lags? The answer is clearest for the linear HAR
 specification. Reddit sentiment, combined Reddit
 attention/sentiment, paid-news attention, and the combined paid-news rung all
 significantly beat HAR-RV under QLIKE---and most under squared-error too---while Google Trends
@@ -1183,6 +1216,79 @@ selectively useful for XGBoost, but the evidence is not broad enough to claim th
 tree ensembles dominate the HAR benchmark. Overall, HAR remains the central and
 most stable benchmark, while sentiment and attention add small, loss-dependent
 forecasting gains rather than changing the model ranking outright.
+
+\subsection{Economic significance: a Value-at-Risk backtest}
+\label{sec:var-backtest}
+
+A QLIKE improvement is a statistical statement; a risk manager asks an economic one---does the
+better volatility forecast produce better tail-risk numbers? We turn each weekly RV forecast
+\(\hat\sigma_t\) into a one-week Value-at-Risk for the silver return,
+\(\mathrm{VaR}_t(\alpha) = \mu + \hat\sigma_t\, q_\alpha\), with \(\mu\) the train-period drift and
+\(q_\alpha\) the \(\alpha\)-quantile of the innovation (Normal headline, unit-variance
+Student-\(t_5\) as a heavy-tail robustness check). A \emph{breach} is
+\(r_t < \mathrm{VaR}_t(\alpha)\); we backtest unconditional coverage (Kupiec), the pinball loss (a
+proper quantile score), and Expected Shortfall on the 174-week test window. Only \(\hat\sigma_t\)
+differs across rows (Table~\ref{tab:var-backtest}), so any calibration gap is attributable to the
+volatility forecast itself.
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{6pt}
+    \caption{One-week VaR backtest, 174-week test window, Normal innovations. \emph{Breach} is the
+    realised breach rate (target \(\alpha\)); \emph{Kupiec \(p\)} tests correct unconditional
+    coverage (a small \(p\) rejects); \emph{pinball} is the mean quantile loss (\(\times10^{4}\),
+    lower is better). On the pinball loss the HAR family beats the na\"ive floor at the 5\% tail
+    with Diebold--Mariano \(p<0.001\); at the 1\% tail only \textbf{HAR\,+\,Reddit attention}
+    restores correct coverage and improves on bare HAR (DM \(p\approx0.07\)). Under Student-\(t_5\)
+    innovations (not shown) the ranking is unchanged and bare HAR clears the 1\% coverage bar, so
+    the coverage \emph{repair} is Normal-VaR-specific while the pinball gain holds under both.}
+    \label{tab:var-backtest}
+    \begin{tabular}{l ccc ccc}
+        \toprule
+        & \multicolumn{3}{c}{5\% VaR} & \multicolumn{3}{c}{1\% VaR}\\
+        \cmidrule(lr){2-4}\cmidrule(lr){5-7}
+        Model & breach & Kupiec \(p\) & pinball & breach & Kupiec \(p\) & pinball\\
+        \midrule
+        Na\"ive (\(\mathrm{RV}_{t-1}\)) & 8.0\% & 0.089 & 66.3 & 4.0\% & \textbf{0.003} & 24.1\\
+        GARCH(1,1)                      & 3.4\% & 0.321 & 58.5 & 1.7\% & 0.384 & 20.8\\
+        HAR                             & 6.3\% & 0.441 & 59.6 & 2.9\% & 0.043 & 21.2\\
+        HAR\,+\,Reddit attention        & 5.7\% & 0.658 & 59.6 & 2.3\% & \textbf{0.141} & 20.8\\
+        HAR\,+\,Paid                    & 5.7\% & 0.658 & 59.6 & 2.9\% & 0.043 & 20.5\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Two findings follow. First, \textbf{forecastable volatility has genuine economic value}. At the
+5\% tail the HAR-family VaR is well-calibrated (breach rate \(\approx6\%\) versus the na\"ive
+forecast's 8\%) and beats the na\"ive floor significantly on the pinball loss (DM \(p<0.001\)),
+while the na\"ive \(\mathrm{RV}_{t-1}\) VaR is Kupiec-\emph{rejected} at the 1\% tail (4.0\%
+breaches, \(p=0.003\)). Treating last week's volatility as this week's risk produces an unusable
+tail measure; the HAR forecast does not. Second, \textbf{the sentiment increment is marginal and
+lives in the deep tail}. At 1\% even bare HAR is borderline (5 breaches, \(p=0.043\)), and
+HAR\,+\,Reddit attention---the chapter's best parsimonious extension---is the only rung to restore
+correct coverage (4 breaches, \(p=0.14\)) and the one with the largest pinball improvement over
+HAR (DM \(p\approx0.07\)); at the 5\% tail all sentiment rungs tie. The repair is specific to the
+Normal VaR (the heavy-tailed \(t_5\) already lifts bare HAR over the bar), so this is a small,
+deepest-in-the-tail refinement, not a wholesale gain (Figure~\ref{fig:var-backtest}).
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/var_backtest.png}
+    \caption{\emph{(A)} The one-week 5\% VaR of HAR\,+\,Reddit attention (green) against the
+    realised return; the na\"ive \(\mathrm{RV}_{t-1}\) VaR (red dotted) is jagged and over-reacts to
+    the last week, overshooting badly around the January 2026 spike. \emph{(B)} Cumulative VaR(5\%) pinball
+    loss: the na\"ive floor (red) sits clearly above the HAR family (HAR and HAR\,+\,Reddit
+    attention almost coincide), the gap opening at each volatility burst. Forecastable volatility
+    converts into materially better tail risk; sentiment refines it only at the margin.}
+    \label{fig:var-backtest}
+\end{figure}
+
+This closes the loop the title opens. The conditional mean is unforecastable and the conditional
+variance is forecastable, and the backtest shows the forecastable moment is the one a risk system
+actually consumes: a HAR-based VaR---optionally sharpened in the deep tail by Reddit
+attention---is materially better calibrated than the random-walk benchmark a manager would
+otherwise default to.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Discussion}
@@ -1222,9 +1328,12 @@ magnitude-worthless (they win no Diebold--Mariano test and carry negative out-of
 Predictability that is
 episodic, regime-bound, and unexploitable is the signature the adaptive-markets hypothesis of
 \textcite{lo2004} anticipates: efficiency as a time-varying equilibrium that tightens and
-loosens with conditions, not an absolute law. We therefore read these directional traces---and
-the rolling window's fleeting advantage---as a caveat consistent with adaptive efficiency, not
-as evidence against it.
+loosens with conditions, not an absolute law. The regime analysis of Section~\ref{sec:mean}
+puts this beyond interpretation---a rolling directional test that is significant only in
+isolated windows, and a Markov-switching model in which the predictive coefficient concentrates
+in short turbulent regimes (Figure~\ref{fig:regime}). We therefore read these directional
+traces---and the rolling window's fleeting advantage---as a caveat consistent with adaptive
+efficiency, not as evidence against it.
 
 The sentiment evidence sharpens the same mean-versus-variance contrast and illustrates the gap
 between statistical and economic significance. Tested as an explicit ablation on both moments, 
@@ -1294,15 +1403,13 @@ coarse proxy for the true integrated variance.
 \textbf{Future work.} Each limitation points to an extension. Higher-frequency (five-minute)
 realised variance would sharpen the volatility target and let the mean be re-tested intraday,
 where microstructure may admit fleeting predictability the weekly view averages away. The
-episodic, regime-bound directional signal invites an explicit regime-switching or
-time-varying-efficiency model, turning the adaptive-markets reading from a post-hoc caveat into
-a tested hypothesis. Most naturally, the two moments can be joined in a conditional
-value-at-risk or expected-shortfall model---an unforecastable mean paired with a forecastable
-variance is precisely the input tail-risk measurement needs---and backtested net of costs,
-operationalising the thesis's central asymmetry that risk, not return, is the forecastable
-object. Finally, applying the same two-moment framework to other metals---gold, platinum,
-copper---would show whether the weekly efficiency found here is specific to silver or a shared
-feature of liquid metal markets.
+regime-switching test of the directional signal (Section~\ref{sec:mean}) and the VaR backtest of
+the volatility forecasts (Section~\ref{sec:var-backtest}) are deliberately first passes: a richer
+multi-state or smoothly time-varying efficiency model, and a cost-aware volatility-managed strategy
+backtested net of transaction costs, would push each further and turn the tail-risk result into a
+full economic-value study. Finally, applying the same two-moment framework to other metals---gold,
+platinum, copper---would show whether the weekly efficiency found here is specific to silver or a
+shared feature of liquid metal markets.
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  References
