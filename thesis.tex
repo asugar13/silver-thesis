@@ -708,9 +708,6 @@ against the same drift floor. Each exogenous predictor enters lagged one week
 cumulatively to a six-asset cross-return base (EXOG): the gold/silver ratio, technical
 indicators, monthly macro, the China PMI proxy, daily FRED indicators, COT positioning, and
 Reddit, GDELT, and reputable paid-news sentiment, up to an all-features rung.
-% TEMP: colour-marked for review — candidate for deletion
-{\color{red}The paid-news rungs mirror the GDELT-news rungs with the title-only paid score
-swapped in, and the PMI proxy is added to each daily-FRED rung.}
 
 \textbf{ARIMA / ARIMAX.} An \(\mathrm{ARIMA}(p,d,q)\) model expresses the \(d\)-th difference
 of the return through its own past values and past innovations,
@@ -728,6 +725,9 @@ regressors,
     r_t = \mu + \beta' x_{t-1} + \varepsilon_t ,
 \end{equation}
 and supplies the linear semi-strong test.
+{\color{red}As a complementary series-level weak-form diagnostic, the generalised
+spectral test of \textcite{hong2003} checks for nonlinear own-history departures from
+the martingale-difference null that linear autocorrelation diagnostics may miss.}
 
 \textbf{VAR.} A vector autoregression of silver and the cross-asset returns, stacked in a
 vector \(y_t\), with lag order \(p\) chosen by AIC,
@@ -864,10 +864,6 @@ proxy-robust QLIKE loss \parencite{patton2011}, which squared-error DM is too lo
 to replace on heavy-tailed realised volatility. The \textbf{Pesaran--Timmermann} test
 \parencite{pesaran1992} is the matching significance test for the directional (DA/WDA)
 reading.
-% TEMP: colour-marked for review — series-level test, may not belong in this model-comparison list
-{\color{red}Finally, a generalised spectral test \parencite{hong2003} checks the own-history
-return series for nonlinear departures from the martingale-difference null that linear
-autocorrelation cannot detect.}
 
 Two robustness layers accompany the headline tests: a breakdown by calendar sub-period
 across 2023--2026, to confirm that performance is not driven by a single regime, and a
