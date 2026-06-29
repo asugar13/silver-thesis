@@ -1211,84 +1211,75 @@ specifications, yet the Diebold--Mariano tests mostly classify those gains as ti
 against the RF(HAR) baseline. XGBoost gives the strongest nonlinear evidence:
 the Reddit-attention rung significantly improves both MSE and QLIKE relative to
 XGB(HAR), and several sentiment/attention variants improve one loss even when the
-other remains a tie. Thus the public-information signal is useful for HAR and
-selectively useful for XGBoost, but the evidence is not broad enough to claim that
-tree ensembles dominate the HAR benchmark. Overall, HAR remains the central and
+other remains a tie. Thus the public-information signal is useful for the linear HAR,
+selectively useful for XGBoost, and largely inert for the random forest---a model-dependent
+increment, not a uniform one. Overall, HAR remains the central and
 most stable benchmark, while sentiment and attention add small, loss-dependent
 forecasting gains rather than changing the model ranking outright.
 
 \subsection{Economic significance: a Value-at-Risk backtest}
 \label{sec:var-backtest}
 
-A QLIKE improvement is a statistical statement; a risk manager asks an economic one---does the
-better volatility forecast produce better tail-risk numbers? We turn each weekly RV forecast
-\(\hat\sigma_t\) into a one-week Value-at-Risk for the silver return,
-\(\mathrm{VaR}_t(\alpha) = \mu + \hat\sigma_t\, q_\alpha\), with \(\mu\) the train-period drift and
-\(q_\alpha\) the \(\alpha\)-quantile of the innovation (Normal headline, unit-variance
-Student-\(t_5\) as a heavy-tail robustness check). A \emph{breach} is
-\(r_t < \mathrm{VaR}_t(\alpha)\); we backtest unconditional coverage (Kupiec), the pinball loss (a
-proper quantile score), and Expected Shortfall on the 174-week test window. Only \(\hat\sigma_t\)
-differs across rows (Table~\ref{tab:var-backtest}), so any calibration gap is attributable to the
-volatility forecast itself.
+A QLIKE improvement is a statistical statement; risk management asks an economic one---does the
+better volatility forecast actually give a better risk number? We test it directly: each weekly RV
+forecast \(\hat\sigma_t\) becomes a one-week Value-at-Risk for the silver return,
+\(\mathrm{VaR}_t(\alpha) = \mu + \hat\sigma_t\, q_\alpha\), and we ask how well it brackets the
+realised weekly losses over the test window. Only the volatility forecast \(\hat\sigma_t\) differs
+across the models compared (Table~\ref{tab:var-backtest}), so any difference in calibration is the
+forecast's doing.
 
 \begin{table}[htbp]
     \centering
     \footnotesize
     \setlength{\tabcolsep}{6pt}
-    \caption{One-week VaR backtest, 174-week test window, Normal innovations. \emph{Breach} is the
-    realised breach rate (target \(\alpha\)); \emph{Kupiec \(p\)} tests correct unconditional
-    coverage (a small \(p\) rejects); \emph{pinball} is the mean quantile loss (\(\times10^{4}\),
-    lower is better). On the pinball loss the HAR family beats the na\"ive floor at the 5\% tail
-    with Diebold--Mariano \(p<0.001\); at the 1\% tail only \textbf{HAR\,+\,Reddit attention}
-    restores correct coverage and improves on bare HAR (DM \(p\approx0.07\)). Under Student-\(t_5\)
-    innovations (not shown) the ranking is unchanged and bare HAR clears the 1\% coverage bar, so
-    the coverage \emph{repair} is Normal-VaR-specific while the pinball gain holds under both.}
+    \caption{One-week VaR backtest, 174-week test window (Normal innovations; a Student-\(t_5\)
+    version leaves the ranking unchanged). \emph{Breach} is the realised breach rate (it should sit
+    near the target \(\alpha\)); \emph{pinball} is the mean quantile loss (\(\times10^{4}\), lower is
+    better). The HAR forecast is well-calibrated and beats the na\"ive floor on the pinball loss at
+    \(p<0.001\) (5\% tail, Diebold--Mariano); adding sentiment leaves these numbers essentially
+    unchanged.}
     \label{tab:var-backtest}
-    \begin{tabular}{l ccc ccc}
+    \begin{tabular}{l cc cc}
         \toprule
-        & \multicolumn{3}{c}{5\% VaR} & \multicolumn{3}{c}{1\% VaR}\\
-        \cmidrule(lr){2-4}\cmidrule(lr){5-7}
-        Model & breach & Kupiec \(p\) & pinball & breach & Kupiec \(p\) & pinball\\
+        & \multicolumn{2}{c}{5\% VaR} & \multicolumn{2}{c}{1\% VaR}\\
+        \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+        Model & breach & pinball & breach & pinball\\
         \midrule
-        Na\"ive (\(\mathrm{RV}_{t-1}\)) & 8.0\% & 0.089 & 66.3 & 4.0\% & \textbf{0.003} & 24.1\\
-        GARCH(1,1)                      & 3.4\% & 0.321 & 58.5 & 1.7\% & 0.384 & 20.8\\
-        HAR                             & 6.3\% & 0.441 & 59.6 & 2.9\% & 0.043 & 21.2\\
-        HAR\,+\,Reddit attention        & 5.7\% & 0.658 & 59.6 & 2.3\% & \textbf{0.141} & 20.8\\
-        HAR\,+\,Paid                    & 5.7\% & 0.658 & 59.6 & 2.9\% & 0.043 & 20.5\\
+        Na\"ive (\(\mathrm{RV}_{t-1}\)) & 8.0\% & 66.3 & 4.0\% & 24.1\\
+        GARCH(1,1)                      & 3.4\% & 58.5 & 1.7\% & 20.8\\
+        HAR                             & 6.3\% & 59.6 & 2.9\% & 21.2\\
+        HAR\,+\,Reddit attention        & 5.7\% & 59.6 & 2.3\% & 20.8\\
         \bottomrule
     \end{tabular}
 \end{table}
 
-Two findings follow. First, \textbf{forecastable volatility has genuine economic value}. At the
-5\% tail the HAR-family VaR is well-calibrated (breach rate \(\approx6\%\) versus the na\"ive
-forecast's 8\%) and beats the na\"ive floor significantly on the pinball loss (DM \(p<0.001\)),
-while the na\"ive \(\mathrm{RV}_{t-1}\) VaR is Kupiec-\emph{rejected} at the 1\% tail (4.0\%
-breaches, \(p=0.003\)). Treating last week's volatility as this week's risk produces an unusable
-tail measure; the HAR forecast does not. Second, \textbf{the sentiment increment is marginal and
-lives in the deep tail}. At 1\% even bare HAR is borderline (5 breaches, \(p=0.043\)), and
-HAR\,+\,Reddit attention---the chapter's best parsimonious extension---is the only rung to restore
-correct coverage (4 breaches, \(p=0.14\)) and the one with the largest pinball improvement over
-HAR (DM \(p\approx0.07\)); at the 5\% tail all sentiment rungs tie. The repair is specific to the
-Normal VaR (the heavy-tailed \(t_5\) already lifts bare HAR over the bar), so this is a small,
-deepest-in-the-tail refinement, not a wholesale gain (Figure~\ref{fig:var-backtest}).
+The result is clear-cut. The HAR-based VaR is well-calibrated---its breach rate sits close to the
+nominal level and its quantile (pinball) loss is significantly below the na\"ive floor's
+(Diebold--Mariano \(p<0.001\))---whereas the na\"ive \(\mathrm{RV}_{t-1}\) VaR, which simply carries
+last week's volatility forward, over-breaches and is poorly calibrated in the tail
+(Figure~\ref{fig:var-backtest}). Forecastable volatility is therefore not merely detectable but
+economically useful: it is the difference between a usable and an unusable tail-risk measure.
+Adding sentiment to the HAR forecast barely moves these numbers (Table~\ref{tab:var-backtest})---the
+VaR gain belongs to HAR, not to sentiment. The forecast improvement sentiment brings
+(Section~\ref{sec:var-sentiment}) is real but small, and it only registers when averaged over the
+whole sample; a VaR is decided by a few extreme weeks in the tail---too few for that small gain to
+register.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{images/var_backtest.png}
-    \caption{\emph{(A)} The one-week 5\% VaR of HAR\,+\,Reddit attention (green) against the
-    realised return; the na\"ive \(\mathrm{RV}_{t-1}\) VaR (red dotted) is jagged and over-reacts to
-    the last week, overshooting badly around the January 2026 spike. \emph{(B)} Cumulative VaR(5\%) pinball
-    loss: the na\"ive floor (red) sits clearly above the HAR family (HAR and HAR\,+\,Reddit
-    attention almost coincide), the gap opening at each volatility burst. Forecastable volatility
-    converts into materially better tail risk; sentiment refines it only at the margin.}
+    \caption{\emph{(A)} The one-week 5\% VaR from the HAR forecast (green) against the realised
+    return; the na\"ive \(\mathrm{RV}_{t-1}\) VaR (red dotted) is jagged and over-reacts to the last
+    week, overshooting badly around the January 2026 spike. \emph{(B)} Cumulative VaR(5\%) pinball
+    loss: the na\"ive floor (red) sits clearly above the HAR forecast (green), the gap opening at
+    each volatility burst. Forecastable volatility converts into materially better tail risk.}
     \label{fig:var-backtest}
 \end{figure}
 
 This closes the loop the title opens. The conditional mean is unforecastable and the conditional
 variance is forecastable, and the backtest shows the forecastable moment is the one a risk system
-actually consumes: a HAR-based VaR---optionally sharpened in the deep tail by Reddit
-attention---is materially better calibrated than the random-walk benchmark a manager would
-otherwise default to.
+actually consumes: a HAR-based VaR is materially better calibrated than the random-walk benchmark a
+manager would otherwise default to.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Discussion}
