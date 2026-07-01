@@ -1008,30 +1008,72 @@ not evidence against efficiency in the conditional mean.
     \label{fig:returns-wda}
 \end{figure}
 
-That adaptive-markets reading is itself testable, and two structural checks bear it out. A rolling
-52-week Pesaran--Timmermann test of an expanding-window directional forecast (built from the same
-COT and paid-news signals) is insignificant pooled over the sample (\(p\approx0.15\)), yet clears
-\(p<0.05\) in isolated 2021, 2022, 2024 and 2025 windows and is flat elsewhere---the signal
-switches on and off rather than holding steady. A two-regime Markov-switching regression makes the
-point structurally: it separates a long \emph{calm} regime (spells of \(\approx70\) weeks) from
-short \emph{turbulent} bursts (\(\approx12\) weeks, six times the variance), and the paid-news
-coefficient is an order of magnitude larger---and marginally significant
-(\(p\approx0.08\))---inside the turbulent regime than the calm one
-(Figure~\ref{fig:regime}). Directional predictability is therefore intermittent and regime-bound,
-not constant: the adaptive-markets signature in structural form. The effect nonetheless stays
-marginal and magnitude-worthless, so it sharpens the footnote without overturning the
-efficiency verdict.
+The adaptive-markets reading can be explored more directly, but the evidence distinguishes
+temporal instability from volatility-state dependence. The diagnostic retains the two
+one-week-lagged predictors responsible for the linear models' directional result:
+COT managed-money net positioning, whose addition made the ARIMAX ladder PT-significant, and
+the paid-news title sentiment score, the only sentiment measure whose PT result replicated in
+both VAR and MIDAS. Pooling them gives a deliberately parsimonious specification for tracing
+the previously detected signal through time, rather than a new search across the full feature
+set.
+
+A rolling 52-week Pesaran--Timmermann test of its expanding-window directional forecasts is
+insignificant when pooled over the sample (\(p=0.145\)). Of 433 rolling windows, 26 (6.0\%)
+produce \(p<0.05\), with their endpoints concentrated in 2021--22 and 2024--25. These are not
+four independent annual rejections: adjacent windows share 51 of 52 observations. Moreover,
+examining 433 \(p\)-values means that some will fall below 0.05 by chance even if no genuine
+signal exists, and no correction is applied for making so many comparisons. The clustering is
+therefore descriptive evidence of temporal instability, not a standalone rejection of constant
+efficiency. Table~\ref{tab:rolling-pt-year} shows both the recurrence and its limited extent.
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \caption{Rolling directional significance by window-ending year. Each row summarises the
+    weekly rolling 52-week PT tests whose final observation falls in that calendar year; it is
+    not a separate annual PT test. ``Minimum \(p\)'' is the smallest rolling-window \(p\)-value
+    observed during the year. Adjacent windows share 51 observations, so the final column counts
+    overlapping endpoints rather than independent rejections.}
+    \label{tab:rolling-pt-year}
+    \begin{tabular}{r r r r}
+        \toprule
+        Endpoint year & Rolling windows & Minimum \(p\) & Windows with \(p<0.05\) \\
+        \midrule
+        2018 & 50 & 0.161 & 0 \\
+        2019 & 52 & 0.166 & 0 \\
+        2020 & 52 & 0.179 & 0 \\
+        2021 & 53 & \textbf{0.009} & \textbf{7} \\
+        2022 & 52 & \textbf{0.021} & \textbf{3} \\
+        2023 & 52 & 0.145 & 0 \\
+        2024 & 52 & \textbf{0.024} & \textbf{12} \\
+        2025 & 52 & \textbf{0.033} & \textbf{4} \\
+        2026 & 18 & 0.269 & 0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+A two-regime Markov-switching regression asks the separate question of whether that instability
+is associated with volatility states. It identifies a long \emph{calm} regime (expected duration
+\(\approx71\) weeks) and short \emph{turbulent} spells (\(\approx12\) weeks), with estimated
+variances of 10.47 and 64.86; equality of the two variances is rejected (Wald \(p=0.003\)).
+The smoothed turbulent-state probability also rises around large absolute weekly returns
+(Appendix Figure~\ref{fig:regime-volatility}), supporting the high-variance interpretation.
+However, none of the 26 significant rolling-test endpoints lies in the turbulent state, and only
+seven of their underlying 52-week windows contain even one turbulent observation. The paid-news
+coefficient is more negative in the turbulent state in point-estimate terms
+(\(-2.23\) versus \(-0.22\)), but the cross-regime difference is not significant
+(Wald \(p=0.116\)). The volatility regimes are therefore well distinguished, but they do not
+explain the episodic directional result (Figure~\ref{fig:regime}). Both diagnostics leave the
+magnitude-efficiency verdict unchanged.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{images/regime_efficiency.png}
-    \caption{Regime-dependent directional predictability. \emph{(A)} The rolling 52-week
-    Pesaran--Timmermann \(p\)-value of the COT\,+\,paid-news directional forecast dips below
-    significance only in clusters (notably 2022 and 2024--25), shaded where a two-regime
-    Markov-switching model places the high-variance \emph{turbulent} state. \emph{(B)} The smoothed
-    turbulent-regime probability tracks the volatility bursts---the 2020 COVID crash, the 2021
-    squeeze, and the 2025--26 run-up. The weak directional signal concentrates in those turbulent
-    regimes rather than holding across the calm majority of the sample.}
+    \caption{Temporal directional instability versus volatility regimes. The line is the rolling
+    52-week Pesaran--Timmermann \(p\)-value of the COT\,+\,paid-news directional forecast; orange
+    shading marks weeks where a two-regime Markov-switching model places the high-variance
+    \emph{turbulent} state. The low-\(p\) clusters and turbulent shading largely do not coincide:
+    the volatility classification does not explain the timing of directional significance.}
     \label{fig:regime}
 \end{figure}
 
@@ -1316,15 +1358,17 @@ significance from COT positioning and the paid-news title score in ARIMAX and VA
 100-week rolling ARIMA shows a transient edge over the expanding drift; but both are
 magnitude-worthless (they win no Diebold--Mariano test and carry negative out-of-sample
 \(R^2\)), concentrated in the 2025 bull, and non-replicating across the nonlinear families.
-Predictability that is
-episodic, regime-bound, and unexploitable is the signature the adaptive-markets hypothesis of
-\textcite{lo2004} anticipates: efficiency as a time-varying equilibrium that tightens and
-loosens with conditions, not an absolute law. The regime analysis of Section~\ref{sec:mean}
-puts this beyond interpretation---a rolling directional test that is significant only in
-isolated windows, and a Markov-switching model in which the predictive coefficient concentrates
-in short turbulent regimes (Figure~\ref{fig:regime}). We therefore read these directional
-traces---and the rolling window's fleeting advantage---as a caveat consistent with adaptive
-efficiency, not as evidence against it.
+The separate rolling test likewise produces low \(p\)-values only in clusters, although
+consecutive tests reuse 51 of 52 observations and inspecting hundreds of \(p\)-values makes
+some chance crossings of the 0.05 threshold likely. That pattern is therefore descriptive.
+This temporal instability is consistent with the adaptive-markets hypothesis of
+\textcite{lo2004}, under which efficiency tightens and loosens with conditions, but it does not
+identify those conditions. In particular, the Markov analysis detects credible calm and
+turbulent variance states yet finds no alignment between turbulence and the significant
+directional windows, while the paid-news coefficients do not differ significantly across states
+(Figure~\ref{fig:regime}). We therefore retain these directional traces as a cautious,
+unexploitable adaptive-efficiency caveat, not as evidence of volatility-regime-bound
+predictability or against mean efficiency.
 
 The sentiment evidence sharpens the same mean-versus-variance contrast and illustrates the gap
 between statistical and economic significance. Tested as an explicit ablation on both moments, 
@@ -1355,11 +1399,11 @@ moment is the one risk management actually uses.
 
 Weekly silver returns are indistinguishable from a martingale difference under magnitude
 loss, consistent with weak- and semi-strong-form efficiency in the economically relevant
-sense; the residual directional dependence is statistically detectable but unexploitable,
-which efficiency theory permits; and its episodic, regime-bound character is consistent
-with---though not proof of---the adaptive-markets view \parencite{lo2004} in which such
-efficiency is the equilibrium outcome rather than the assumption. One story, three layers,
-no tension.
+sense. The residual directional traces are weak, model-dependent and unexploitable; their
+apparent temporal clustering is consistent with---though not proof of---the adaptive-markets
+view \parencite{lo2004}. The Markov analysis independently identifies calm and turbulent
+volatility states, but those states do not explain when the directional windows become
+significant.
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  Contributions (relocated from the Introduction). Fold into the conclusion prose
@@ -1393,14 +1437,15 @@ coarse proxy for the true integrated variance.
 
 \textbf{Future work.} Each limitation points to an extension. Higher-frequency (five-minute)
 realised variance would sharpen the volatility target and let the mean be re-tested intraday,
-where microstructure may admit fleeting predictability the weekly view averages away. The
-regime-switching test of the directional signal (Section~\ref{sec:mean}) and the VaR backtest of
-the volatility forecasts (Section~\ref{sec:var-backtest}) are deliberately first passes: a richer
-multi-state or smoothly time-varying efficiency model, and a cost-aware volatility-managed strategy
-backtested net of transaction costs, would push each further and turn the tail-risk result into a
-full economic-value study. Finally, applying the same two-moment framework to other metals---gold,
-platinum, copper---would show whether the weekly efficiency found here is specific to silver or a
-shared feature of liquid metal markets.
+where microstructure may admit fleeting predictability the weekly view averages away. Because
+the Markov volatility states do not explain the rolling directional episodes
+(Section~\ref{sec:mean}), a direct time-varying-coefficient model or a model whose states are
+defined by investor attention rather than return variance would be a more informative test of
+the adaptive-markets interpretation. The VaR backtest of Section~\ref{sec:var-backtest} is also a
+first pass; a cost-aware volatility-managed strategy backtested net of transaction costs would
+turn the tail-risk result into a fuller economic-value study. Finally, applying the same
+two-moment framework to other metals---gold, platinum, copper---would show whether the weekly
+efficiency found here is specific to silver or a shared feature of liquid metal markets.
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  References
@@ -1564,6 +1609,17 @@ average gains and losses. Each is built raw and lagged one week before use.
 
 \section{Supplementary figures}
 \label{app:figures}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{images/regime_volatility_validation.png}
+    \caption{Validation of the Markov volatility-state interpretation. The black line is the
+    absolute weekly silver return; the orange area scales the smoothed probability of the
+    high-variance turbulent state to the same vertical range. The probability rises around the
+    largest return magnitudes, supporting the calm/turbulent labels independently of the rolling
+    directional test. Referenced from Section~\ref{sec:mean}.}
+    \label{fig:regime-volatility}
+\end{figure}
 
 \begin{figure}[H]
     \centering
