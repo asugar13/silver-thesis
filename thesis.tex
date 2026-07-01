@@ -223,7 +223,7 @@ model of \textcite{corsi2009} alongside the same tree ensembles.
 % martingale-difference / information-set notation. The intro states the efficiency
 % question in plain English; this section gives it the precise form that motivates the
 % model ladder; the Conclusion (sec:conclusion) revisits the one-paragraph synthesis.
-% Drafted concisely below; expand per notebooks/weekly/formulas.md as needed.
+% Drafted concisely below; expand per notebooks/weekly/notes.md (Part 1) as needed.
 
 This section fixes the notation used throughout and states, precisely, the null hypothesis that
 each model class is built to test. The aim is to keep the language exact without
@@ -518,7 +518,8 @@ information about trading activity and volatility than about returns. This disti
 matches the thesis's expected result: sentiment and attention may matter more for the
 variance of silver returns than for the mean.
 
-Modern NLP improves measurement. FinBERT is designed for financial language and outperforms
+Modern NLP improves measurement. FinBERT, a BERT-based model \parencite{devlin2019}, is
+designed for financial language and outperforms
 generic methods on financial sentiment tasks \parencite{araci2019}, while RoBERTa and
 Twitter-specialised models improve contextual understanding for informal, rapidly changing
 online language \parencite{liu2019,loureiro2022}. This motivates using FinBERT for financial
@@ -551,11 +552,10 @@ narratives can collide.
 % ═════════════════════════════════════════════════════════════════════════════
 
 All models are estimated on one weekly dataset, January 2015 to May 2026, on a common
-Friday-to-Friday (W-FRI) calendar of 591 weeks. Seven data source families are consolidated
+Friday-to-Friday (W-FRI) calendar of 591 weeks. Six data-source families are consolidated
 into a single feature frame (Section~\ref{sec:data-frame}); the forecast target throughout
-is the weekly silver log-return \(r_t = \log P_t - \log P_{t-1}\). The information set spans
-seven source families, all observed at the Friday-\(t{-}1\) close and lagged before use
-(Section~\ref{sec:data-frame}):
+is the weekly silver log-return \(r_t = \log P_t - \log P_{t-1}\). Every series is observed
+at the Friday-\(t{-}1\) close and lagged before use (Section~\ref{sec:data-frame}):
 
 \begin{itemize}[nosep]
     \item \textbf{Market prices} (Yahoo Finance, daily) --- silver, the forecast target
@@ -775,7 +775,11 @@ information leaks into tuning---and the model is re-fit every four weeks in the 
 \textbf{LSTM.} A long short-term memory recurrent network \parencite{hochreiter1997} that
 reads a fixed window of recent weeks and learns its own representation of the past; a
 single recurrent layer with dropout and early stopping is used, given the small sample (a
-few hundred training sequences). A weekly-input model and a daily-input variant (a
+few hundred training sequences). Because a single trained network is one random draw
+(weight initialisation and batch order), every variant is trained over five seeds:
+reported metrics are seed-means, and the median-RMSE seed supplies the forecast---a
+representative draw rather than an ensemble average, which would understate the error.
+A weekly-input model and a daily-input variant (a
 60-trading-day window) are estimated, the latter testing whether daily-resolution
 information helps forecast the weekly return.
 
@@ -915,7 +919,7 @@ reports each family's RMSE-best variant over the full ablation ladder---cross-as
 the gold/silver ratio, monthly macro and the China PMI proxy, daily FRED indicators, COT
 positioning, and Reddit, GDELT and paid-news sentiment---with the tree ensembles and the LSTM
 free to combine them nonlinearly. The spread is strikingly tight: every family lands within
-about one percentage point of the drift's 5.19\% weekly RMSE, and the best of them---an
+about one percent of the drift's 5.19\% weekly RMSE, and the best of them---an
 XGBoost on the cross-asset returns plus paid-news sentiment---improves on the drift by just
 0.05 points (\(R^2_{\text{OS}}=+1.8\%\)). Figure~\ref{fig:returns-rmse} shows the same picture:
 the bars sit on the drift floor.
@@ -937,9 +941,9 @@ the bars sit on the drift floor.
         Family & Best variant & RMSE & MAE & \(R^2_{\text{OS}}\) & DA & WDA \\
         \midrule
         XGBoost        & \texttt{EXOG+ALLPaid}             & 5.14 & 3.69 & $+1.84$ & 0.540 & 0.574 \\
+        MIDAS (daily)  & \texttt{EXOG-d+GS\_HF}            & 5.14 & 3.68 & $+1.78$ & 0.586 & 0.607 \\
         LSTM (daily)   & \texttt{EXOG-GS-SentimentPaid}    & 5.16 & 3.70 & $+1.27$ & 0.561 & 0.568 \\
         Random Forest  & \texttt{EXOG+News}                & 5.16 & 3.72 & $+0.98$ & 0.517 & 0.560 \\
-        MIDAS (daily)  & \texttt{EXOG-d+GS\_HF}            & 5.17 & 3.67 & $+0.80$ & 0.586 & 0.586 \\
         LSTM           & \texttt{EXOG-ALLPaid}             & 5.17 & 3.71 & $+0.59$ & 0.556 & 0.563 \\
         VAR            & \texttt{EXOG+GS+Sentiment}        & 5.18 & 3.66 & $+0.41$ & 0.603 & 0.594 \\
         ARIMAX         & \texttt{ARIMAX+GS+Sentiment}      & 5.18 & 3.65 & $+0.23$ & 0.609 & 0.588 \\
@@ -973,7 +977,7 @@ historical mean. The null hypothesis cannot be rejected for any model class---th
 VAR and MIDAS regressions, the tree ensembles, and the recurrent network all collapse onto the
 drift. That model classes with such different inductive biases---a linear regression, a tree
 ensemble, a recurrent network---converge on the same drift-equivalent forecast is a benign
-instance of the model multiplicity \textcite{breiman2001} describes: when the conditional mean
+instance of the model multiplicity \textcite{breiman2001cultures} describes: when the conditional mean
 carries no signal, the choice among well-fit model forms is immaterial. Every
 feature in the ladder---cross-asset returns, positioning, macro, and sentiment alike---was
 public information at the forecast date, so the whole ladder is one cumulative test of
@@ -1082,11 +1086,14 @@ magnitude-efficiency verdict unchanged.
 The conclusion strengthens under scrutiny. Re-running the full battery with the exceptional
 2025 bull removed---pooling 2023, 2024 and 2026, 122 weeks---again yields zero of sixteen
 family-selections beating the floor; if anything the directionally-selected variants now fall
-significantly \emph{behind} it (VAR, \(p=0.048\)). The per-period view
-(Figure~\ref{fig:returns-period}) makes the point visually: no family holds a positive
-out-of-sample \(R^2\) across all four sub-periods---a good year is offset by a bad one, the
-signature of regime luck rather than skill, and the high directional accuracy of 2025 is
-simply the bull run rewarding the always-up tilt. The expanding and 100-week rolling windows
+significantly \emph{behind} it (VAR \(p=0.048\), weekly MIDAS \(p=0.029\)). The per-period view
+(Figure~\ref{fig:returns-period}) makes the point visually: with one exception, no family
+holds a positive out-of-sample \(R^2\) across all four sub-periods---a good year is offset by
+a bad one, the signature of regime luck rather than skill---and the high directional accuracy
+of 2025 is simply the bull run rewarding the always-up tilt. The exception, XGBoost, stays
+positive in every sub-period but by margins (\(+0.3\) to \(+5.8\%\)) that pool to the
+insignificant full-window result (DM \(p=0.43\)): the luckiest draw among sixteen selections,
+not evidence of skill. The expanding and 100-week rolling windows
 tell the same story, with the rolling variants the worse of the two on balance. Weekly silver
 returns are, on this evidence, unforecastable from public information.
 
@@ -1096,7 +1103,8 @@ returns are, on this evidence, unforecastable from public information.
     \caption{Per-period robustness. \emph{Left:} directional accuracy (WDA) by calendar year
     for the WDA-best variants---uniformly high in the 2025 bull, much weaker elsewhere.
     \emph{Right:} out-of-sample \(R^2\) versus the drift by year for the RMSE-best variants;
-    the sign flips across periods for every family, so no magnitude edge is stable.}
+    the sign flips across periods for every family except XGBoost, whose uniformly positive
+    margins are thin and never significant, so no stable magnitude edge emerges.}
     \label{fig:returns-period}
 \end{figure}
 
@@ -1403,7 +1411,13 @@ sense. The residual directional traces are weak, model-dependent and unexploitab
 apparent temporal clustering is consistent with---though not proof of---the adaptive-markets
 view \parencite{lo2004}. The Markov analysis independently identifies calm and turbulent
 volatility states, but those states do not explain when the directional windows become
-significant.
+significant. The conditional variance, in contrast, is strongly forecastable: HAR, GARCH
+and the tree ensembles all beat the na\"ive realised-volatility floor under the
+proxy-robust QLIKE loss, attention and sentiment add a small but statistically solid
+increment, and the VaR backtest shows the gain is economically material. Together the two
+verdicts form the thesis's single statement: efficiency binds the conditional mean and
+leaves the conditional variance free---and the forecastable moment is the one risk
+management actually consumes.
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  Contributions (relocated from the Introduction). Fold into the conclusion prose
