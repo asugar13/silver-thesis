@@ -1,29 +1,38 @@
+# Exact pins from the `tf` conda env (the documented run environment).
+# For reproducibility elsewhere: `pip install -r requirements.txt`.
+
 # Data collection
-yfinance>=0.2.36
-fredapi>=0.5.1
-praw>=7.7.1
-gdeltdoc>=1.4.0
-requests>=2.31.0
+yfinance==1.2.1
+fredapi==0.5.2
+praw==7.8.1
+gdeltdoc==1.12.0
+pytrends==4.9.2
+cot_reports==0.1.3
+requests==2.33.1
+python-dotenv==1.1.1
+google-cloud-bigquery==3.41.0   # GKG news collection (collect_news_gkg.py)
 
 # Data processing
-pandas>=2.1.0
-numpy>=1.26.0
+pandas==2.3.3
+numpy==2.4.6
+scipy==1.17.0
 
 # Sentiment / NLP
-transformers>=4.40.0
-torch>=2.2.0
+transformers==5.10.2
+torch==2.10.0
 
 # Econometrics
-statsmodels>=0.14.0
-midaspy                # MIDAS regression (install via: pip install git+https://github.com/mikeCenters/midaspy.git)
+statsmodels==0.14.6
+arch==8.0.0                     # GARCH (volatility/01_garch.ipynb)
 
-# ML / Deep learning
-scikit-learn>=1.4.0
+# ML
+scikit-learn==1.8.0
+xgboost==3.2.0
 
 # Visualisation
-matplotlib>=3.8.0
-seaborn>=0.13.0
-plotly>=5.20.0
+matplotlib==3.10.8
+seaborn==0.13.2
+plotly==6.7.0
 
 # Notebooks
-jupyter>=1.0.0
+jupyter==1.1.1

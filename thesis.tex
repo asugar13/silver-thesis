@@ -207,7 +207,7 @@ predictable variance can be modelled.
 of models of increasing flexibility against a common benchmark and a unified evaluation
 protocol. The benchmark
 throughout is the prevailing-mean ``drift'' forecast---the random-walk-with-drift,
-equivalent to ARIMA(0,0,0)---which is the correct null for a return target
+equivalent to ARIMA(0,0,0)---which is the correct benchmark for a return target
 \parencite{welch2008,campbell2008}. For the conditional mean, the ladder runs from
 classical time-series models (ARIMA/ARIMAX, VAR, and MIDAS regressions) through tree
 ensembles (random forests and gradient boosting) to a recurrent neural network (LSTM);
@@ -1274,9 +1274,8 @@ A QLIKE improvement is a statistical statement; risk management asks an economic
 better volatility forecast actually give a better risk number? We test it directly: each weekly RV
 forecast \(\hat\sigma_t\) becomes a one-week Value-at-Risk for the silver return,
 \(\mathrm{VaR}_t(\alpha) = \mu + \hat\sigma_t\, q_\alpha\), and we ask how well it brackets the
-realised weekly losses over the test window. Only the volatility forecast \(\hat\sigma_t\) differs
-across the models compared (Table~\ref{tab:var-backtest}), so any difference in calibration is the
-forecast's doing.
+realised weekly losses over the test window. Only \(\hat\sigma_t\) differs across the rows of
+Table~\ref{tab:var-backtest}, so any calibration difference is the forecast's doing.
 
 \begin{table}[htbp]
     \centering
@@ -1285,9 +1284,9 @@ forecast's doing.
     \caption{One-week VaR backtest, 174-week test window (Normal innovations; a Student-\(t_5\)
     version leaves the ranking unchanged). \emph{Breach} is the realised breach rate (it should sit
     near the target \(\alpha\)); \emph{pinball} is the mean quantile loss (\(\times10^{4}\), lower is
-    better). The HAR forecast is well-calibrated and beats the na\"ive floor on the pinball loss at
-    \(p<0.001\) (5\% tail, Diebold--Mariano); adding sentiment leaves these numbers essentially
-    unchanged.}
+    better). Every forecast-based model beats the na\"ive floor on the pinball loss (5\% tail,
+    Diebold--Mariano: HAR \(p<0.001\), RF and XGBoost \(p\leq0.004\)); adding sentiment leaves
+    these numbers essentially unchanged.}
     \label{tab:var-backtest}
     \begin{tabular}{l cc cc}
         \toprule
@@ -1299,25 +1298,28 @@ forecast's doing.
         GARCH(1,1)                      & 3.4\% & 58.5 & 1.7\% & 20.8\\
         HAR                             & 6.3\% & 59.6 & 2.9\% & 21.2\\
         HAR\,+\,Reddit attention        & 5.7\% & 59.6 & 2.3\% & 20.8\\
+        RF (HAR)                        & 4.6\% & 56.2 & 1.7\% & 19.2\\
+        XGBoost (HAR)                   & 3.4\% & 57.0 & 2.3\% & 20.6\\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The result is clear-cut. The HAR-based VaR is well-calibrated---its breach rate sits close to the
-nominal level and its quantile (pinball) loss is significantly below the na\"ive floor's
-(Diebold--Mariano \(p<0.001\))---whereas the na\"ive \(\mathrm{RV}_{t-1}\) VaR, which simply carries
-last week's volatility forward, over-breaches and is poorly calibrated in the tail
-(Figure~\ref{fig:var-backtest}). Forecastable volatility is therefore not merely detectable but
-economically useful: it is the difference between a usable and an unusable tail-risk measure.
-Adding sentiment to the HAR forecast barely moves these numbers (Table~\ref{tab:var-backtest})---the
-VaR gain belongs to HAR, not to sentiment. The forecast improvement sentiment brings
-(Section~\ref{sec:var-sentiment}) is real but small, and it only registers when averaged over the
-whole sample; a VaR is decided by a few extreme weeks in the tail---too few for that small gain to
-register.
+The result is clear-cut, and it holds in every model class. The HAR, random-forest and XGBoost
+VaRs are all well-calibrated and beat the na\"ive floor on the quantile (pinball) loss
+(Diebold--Mariano \(p\leq0.004\)), whereas the na\"ive \(\mathrm{RV}_{t-1}\) VaR over-breaches
+and is poorly calibrated in the tail (Figure~\ref{fig:var-backtest}); the smoother random-forest
+forecast is, if anything, the best-calibrated row. Forecastable volatility is therefore not
+merely detectable but economically useful---the difference between a usable and an unusable
+tail-risk measure. The sentiment extension is shown on HAR because that is where attention
+improves the point forecast most clearly (Section~\ref{sec:var-sentiment}); even there it barely
+moves the numbers (Table~\ref{tab:var-backtest})---the VaR gain belongs to the volatility model,
+not to sentiment. The improvement sentiment brings registers only when averaged over the whole
+sample, while a VaR is decided by a few extreme weeks in the tail---too few for that small gain
+to matter.
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{images/var_backtest.png}
+    \includegraphics[width=0.9\textwidth]{images/var_backtest.png}
     \caption{\emph{(A)} The one-week 5\% VaR from the HAR forecast (green) against the realised
     return; the na\"ive \(\mathrm{RV}_{t-1}\) VaR (red dotted) is jagged and over-reacts to the last
     week, overshooting badly around the January 2026 spike. \emph{(B)} Cumulative VaR(5\%) pinball
@@ -1328,8 +1330,8 @@ register.
 
 This closes the loop the title opens. The conditional mean is unforecastable and the conditional
 variance is forecastable, and the backtest shows the forecastable moment is the one a risk system
-actually consumes: a HAR-based VaR is materially better calibrated than the random-walk benchmark a
-manager would otherwise default to.
+actually consumes: a forecast-based VaR is materially better calibrated than the random-walk
+benchmark a manager would otherwise default to.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Discussion}
@@ -1368,7 +1370,7 @@ magnitude-worthless (they win no Diebold--Mariano test and carry negative out-of
 \(R^2\)), concentrated in the 2025 bull, and non-replicating across the nonlinear families.
 The separate rolling test likewise produces low \(p\)-values only in clusters, although
 consecutive tests reuse 51 of 52 observations and inspecting hundreds of \(p\)-values makes
-some chance crossings of the 0.05 threshold likely. That pattern is therefore descriptive.
+some chance crossings of the 0.05 threshold likely; the pattern is descriptive.
 This temporal instability is consistent with the adaptive-markets hypothesis of
 \textcite{lo2004}, under which efficiency tightens and loosens with conditions, but it does not
 identify those conditions. In particular, the Markov analysis detects credible calm and
@@ -1409,9 +1411,8 @@ Weekly silver returns are indistinguishable from a martingale difference under m
 loss, consistent with weak- and semi-strong-form efficiency in the economically relevant
 sense. The residual directional traces are weak, model-dependent and unexploitable; their
 apparent temporal clustering is consistent with---though not proof of---the adaptive-markets
-view \parencite{lo2004}. The Markov analysis independently identifies calm and turbulent
-volatility states, but those states do not explain when the directional windows become
-significant. The conditional variance, in contrast, is strongly forecastable: HAR, GARCH
+view \parencite{lo2004}; the Markov volatility states do not explain when the directional
+windows arise. The conditional variance, in contrast, is strongly forecastable: HAR, GARCH
 and the tree ensembles all beat the na\"ive realised-volatility floor under the
 proxy-robust QLIKE loss, attention and sentiment add a small but statistically solid
 increment, and the VaR backtest shows the gain is economically material. Together the two
@@ -1426,8 +1427,8 @@ management actually consumes.
 \textbf{Contributions.} The thesis makes four contributions. First, it evaluates a full
 model ladder---classical, machine-learning, and deep-learning---for \emph{both} moments
 of weekly silver returns under one drift benchmark and one significance battery, so that
-model families are compared on a level footing rather than across incommensurable
-setups. Second, it makes the conditional-mean / conditional-variance factorisation
+model families are compared on a level footing. Second, it makes the
+conditional-mean / conditional-variance factorisation
 explicit, turning what could read as ``returns failed, volatility worked'' into a single
 coherent efficiency statement. Third, it builds a domain-appropriate sentiment
 pipeline---Twitter-RoBERTa for Reddit, FinBERT for financial news---and treats sentiment
@@ -1458,8 +1459,8 @@ defined by investor attention rather than return variance would be a more inform
 the adaptive-markets interpretation. The VaR backtest of Section~\ref{sec:var-backtest} is also a
 first pass; a cost-aware volatility-managed strategy backtested net of transaction costs would
 turn the tail-risk result into a fuller economic-value study. Finally, applying the same
-two-moment framework to other metals---gold, platinum, copper---would show whether the weekly
-efficiency found here is specific to silver or a shared feature of liquid metal markets.
+two-moment framework to other metals---gold, platinum, copper---would show whether weekly
+efficiency is specific to silver or shared across liquid metal markets.
 
 % ─────────────────────────────────────────────────────────────────────────────
 %  References
