@@ -48,9 +48,11 @@ thesis/
 │   ├── vol_utils.py             # volatility metrics + QLIKE Diebold-Mariano
 │   └── eda_utils.py
 ├── docs/                        # proposal and supplementary PDFs
-├── images/                      # figures consumed by thesis.tex
-├── thesis.tex                   # the thesis document (latexmk)
-└── CLAUDE.md                    # detailed methodology reference (per-notebook conventions)
+├── images/                      # figures consumed by report/thesis.tex
+└── report/                      # the thesis document + build inputs
+    ├── thesis.tex               #   main document (latexmk); figures via \graphicspath{{../}}
+    ├── references.bib           #   bibliography
+    └── *.pdf                    #   compiled thesis + scientific poster
 ```
 
 ## Workflow
