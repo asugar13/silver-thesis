@@ -33,6 +33,7 @@
 ]{hyperref}
 
 % ── References ────────────────────────────────────────────────────────────────
+\usepackage{csquotes}
 \usepackage[
     backend  = biber,
     style    = apa,
@@ -130,7 +131,7 @@ sits a retail following that can sometimes turn silver into a meme trade: in lat
 2021, Reddit's r/WallStreetSilver drove spot from roughly \$25 to \$30 an ounce within
 days before it faded. This blend of industrial demand, monetary hedging, and episodic
 retail attention makes silver an unusually rich laboratory for the oldest question in
-empirical finance: how much of a price can be forecast?
+empirical finance: how much of its price can be forecast?
 
 That question has a canonical answer, and it is mostly negative. The efficient-market
 hypothesis \parencite{fama1970,fama1991} holds that prices already embed available
@@ -162,7 +163,7 @@ information aligns. Futures-market positioning is reported weekly and macroecono
 releases monthly, while daily sentiment is too sparse and noisy to inform a forecast and
 daily returns are dominated by microstructure noise; a weekly horizon is coarse enough to
 average out that noise yet fine enough to leave roughly 600 observations over
-2015--2026---enough to train and properly out-of-sample-test the machine-learning models.
+2015--2026---enough to train the machine-learning models and evaluate them properly out of sample.
 Weekly realised volatility, the target of the second-moment analysis, is in turn
 aggregated from daily returns.
 
@@ -177,10 +178,12 @@ aggregated from daily returns.
     shocks accumulate; the thesis models its stationary weekly log-return rather than the
     level itself.}
     \label{fig:silver-price}
-\end{figure} The efficiency question then becomes whether \(r_t\)
+\end{figure}
+
+The efficiency question then becomes whether \(r_t\)
 can be forecast---and silver's own past offers little to go on. Weekly
 returns carry almost no linear autocorrelation, so a linear own-history model such as
-ARIMA has little to grip; a formal model search duly collapses it to a constant mean. Yet
+ARIMA has little signal to exploit; a formal model search duly collapses it to a constant mean. Yet
 the returns are not independent noise either, because their \emph{magnitude} is
 persistent---volatile weeks cluster together---so structure remains, only in the variance
 rather than the mean. The thesis follows this thread: it asks first whether silver's own
@@ -213,6 +216,18 @@ classical time-series models (ARIMA/ARIMAX, VAR, and MIDAS regressions) through 
 ensembles (random forests and gradient boosting) to a recurrent neural network (LSTM);
 for the conditional variance it runs GARCH and the heterogeneous autoregressive (HAR)
 model of \textcite{corsi2009} alongside the same tree ensembles.
+
+\textbf{Structure.} The remainder of the thesis proceeds as follows.
+Section~\ref{sec:framework} formalises the two efficiency null hypotheses in terms of the conditional
+mean and the conditional variance. Section~\ref{sec:lit} positions the study within the
+literatures on market efficiency, commodity and mixed-frequency forecasting, volatility
+modelling, and text-based sentiment. Sections~\ref{sec:data} and~\ref{sec:method} describe
+the dataset and feature construction, the model ladder, and the evaluation protocol.
+Sections~\ref{sec:mean} and~\ref{sec:var} report the forecasting results for the conditional
+mean (weekly returns) and the conditional variance (weekly realised volatility).
+Section~\ref{sec:discussion} interprets the two sets of results jointly, and
+Section~\ref{sec:conclusion} concludes with the study's contributions, limitations, and
+directions for future work.
 
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Conceptual Framework}
@@ -902,7 +917,7 @@ Ljung--Box test finds only marginal linear autocorrelation in weekly returns
 martingale-difference null at every lag order tried (bootstrap \(p \approx 0.90\text{--}0.95\)
 for \(p \in \{5,10,20\}\)). The conditional mean is therefore unpredictable from past returns
 against both linear and nonlinear alternatives, while the same diagnostics strongly reject
-independence in the \emph{squared} returns (\(p \approx 0\))---the predictable structure is
+independence in the \emph{squared} returns (\(p < 0.001\))---the predictable structure is
 confined to the variance, not the mean.
 
 The forecasting models confirm this. The AIC search over own-history ARIMA orders selects
@@ -1092,7 +1107,7 @@ holds a positive out-of-sample \(R^2\) across all four sub-periods---a good year
 a bad one, the signature of regime luck rather than skill---and the high directional accuracy
 of 2025 is simply the bull run rewarding the always-up tilt. The exception, XGBoost, stays
 positive in every sub-period but by margins (\(+0.3\) to \(+5.8\%\)) that pool to the
-insignificant full-window result (DM \(p=0.43\)): the luckiest draw among sixteen selections,
+insignificant full-window result (DM \(p=0.43\)): the most favourable draw among sixteen selections,
 not evidence of skill. The expanding and 100-week rolling windows
 tell the same story, with the rolling variants the worse of the two on balance. Weekly silver
 returns are, on this evidence, unforecastable from public information.
@@ -1176,7 +1191,7 @@ own, not a spillover from gold, copper, or the broad risk complex.
 
 Nonlinearity does not rescue it either. Random forest and XGBoost on the HAR lags sit in the
 same RMSE band as linear HAR-RV, and the same trees on HAR+EXOG are no better than on HAR
-alone (Diebold--Mariano ties)---the cross-asset block is dry for the trees too. What
+alone (Diebold--Mariano ties)---the cross-asset block adds no material signal for the tree models either. What
 \emph{does} matter is the multi-horizon structure itself: collapsing HAR to a single AR(1) lag
 significantly degrades the random forest (\(p=0.001\)), confirming that the forecastable
 signal is the short/medium/long volatility persistence Corsi's HAR is built to capture. The
@@ -1472,7 +1487,7 @@ efficiency is specific to silver or shared across liquid metal markets.
 \appendix
 % ═════════════════════════════════════════════════════════════════════════════
 
-\section{Data appendix}
+\section{Data Appendix}
 \label{app:data}
 
 Table~\ref{tab:variables} catalogues every variable entering the analysis---its source,
@@ -1622,7 +1637,7 @@ average gains and losses. Each is built raw and lagged one week before use.
     \end{tabular}
 \end{table}
 
-\section{Supplementary figures}
+\section{Supplementary Figures}
 \label{app:figures}
 
 \begin{figure}[H]
@@ -1647,5 +1662,22 @@ average gains and losses. Each is built raw and lagged one week before use.
     (Figure~\ref{fig:returns-rmse}). Referenced from Section~\ref{sec:var}.}
     \label{fig:volatility-fit}
 \end{figure}
+
+% ─────────────────────────────────────────────────────────────────────────────
+%  Data and code availability
+% ─────────────────────────────────────────────────────────────────────────────
+\section*{Data and Code Availability}
+\addcontentsline{toc}{section}{Data and Code Availability}
+
+All code---the data-collection scripts, feature construction, the model notebooks, and the
+evaluation and plotting routines that generate every table and figure in this thesis---is
+available in the public repository \url{https://github.com/asugar13/silver-thesis}. Most
+inputs are reconstructed from free public sources (Yahoo Finance, FRED, the CFTC Commitments
+of Traders, GDELT, and Google Trends); the FRED and Reddit collectors require free personal
+API keys. The one input that cannot be redistributed is the paid NewsAPI.ai (Event Registry)
+news feed, which requires a paid subscription key. The repository's \texttt{README} documents
+the required credentials, the pinned software environment (\texttt{requirements.txt}), and the
+notebook execution order needed to regenerate the processed feature frames and reproduce the
+reported results.
 
 \end{document}

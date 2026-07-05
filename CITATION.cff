@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use this software or its results, please cite the thesis below."
+title: "Mean-Variance Dynamics and Market Efficiency in Silver: A Multi-Model Forecasting Framework"
+abstract: >-
+  Companion code for a Master's thesis testing whether weekly silver returns and weekly
+  realised volatility are forecastable from past prices and public information, read
+  through the efficient-market hypothesis. Covers a classical, tree-based, and
+  deep-learning model ladder for the conditional mean and GARCH/HAR/tree models for the
+  conditional variance, with sentiment and technical-indicator ablations.
+type: software
+authors:
+  - given-names: Asier
+    family-names: Ugarteche Perez
+repository-code: "https://github.com/asugar13/silver-thesis"
+url: "https://github.com/asugar13/silver-thesis"
+keywords:
+  - market efficiency
+  - commodity forecasting
+  - realised volatility
+  - MIDAS
+  - HAR
+  - machine learning
+  - sentiment analysis
+  - silver
+license: MIT
+version: "1.0.0"
+date-released: "2026-07-05"
+preferred-citation:
+  type: thesis
+  title: "Mean-Variance Dynamics and Market Efficiency in Silver: A Multi-Model Forecasting Framework"
+  authors:
+    - given-names: Asier
+      family-names: Ugarteche Perez
+  year: 2026
+  month: 6
+  institution:
+    name: "IE University, School of Science and Technology"
+  thesis-type: "Master's thesis (Business Analytics and Data Science)"
+  url: "https://github.com/asugar13/silver-thesis"
