@@ -42,3 +42,6 @@ venv/
 # Credentials / API keys
 *.env
 secrets.py
+
+# Local project instructions — kept local, not published to GitHub
+CLAUDE.md
