@@ -4,6 +4,18 @@ Master in Business Analytics and Data Science — IE School of Science and Techn
 **Student:** Asier Ugarteche Perez
 **Supervisor:** Prof. Dae-Jin Lee
 
+<p align="center">
+  <a href="report/Scientific_Poster.pdf">
+    <img src="report/Scientific_Poster.png" width="720"
+         alt="Scientific poster — Mean-Variance Dynamics and Market Efficiency in Silver">
+  </a>
+</p>
+
+<p align="center">
+  <a href="report/Scientific_Poster.pdf"><b>Poster (PDF)</b></a> ·
+  <a href="report/thesis.pdf"><b>Full thesis (PDF)</b></a>
+</p>
+
 ## Research question
 
 Are weekly silver **returns** forecastable from past prices and public information (cross-asset
@@ -52,7 +64,8 @@ thesis/
 └── report/                      # the thesis document + build inputs
     ├── thesis.tex               #   main document (latexmk); figures via \graphicspath{{../}}
     ├── references.bib           #   bibliography
-    └── *.pdf                    #   compiled thesis + scientific poster
+    ├── *.pdf                    #   compiled thesis + scientific poster
+    └── Scientific_Poster.png    #   poster render shown at the top of this README
 ```
 
 ## Workflow
