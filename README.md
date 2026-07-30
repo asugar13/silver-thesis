@@ -1,7 +1,8 @@
 # Mean-Variance Dynamics and Market Efficiency in Silver: A Multi-Model Forecasting Framework
 
 Master in Business Analytics and Data Science — IE School of Science and Technology (2025/2026)
-**Student:** Asier Ugarteche Perez
+
+**Student:** Asier Ugarteche Perez<br>
 **Supervisor:** Prof. Dae-Jin Lee
 
 <p align="center">
